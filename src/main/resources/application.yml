@@ -19,7 +19,7 @@ spring:
   application:
     name: cache-aside-demo
   datasource:
-    url: jdbc:postgresql://127.0.0.1:${POSTGRES_PORT:55432}/flashsale_lab?connectTimeout=3&socketTimeout=15
+    url: jdbc:postgresql://127.0.0.1:${POSTGRES_PORT:55432}/flashsale_lab?currentSchema=lab&connectTimeout=3&socketTimeout=15
     username: flashsale
     password: ${DB_PASSWORD:local-lab-only}
     hikari:
@@ -49,6 +49,9 @@ spring:
   jackson:
     deserialization:
       fail-on-unknown-properties: true
+      accept-float-as-int: false
+    mapper:
+      allow-coercion-of-scalars: false
   servlet:
     multipart:
       enabled: false

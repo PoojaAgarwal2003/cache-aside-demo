@@ -22,6 +22,15 @@ Resilience4j core APIs avoid an unnecessary auto-configuration coupling.
 Boot normally selects JUnit 6.0.3; the explicitly enforced JUnit 5 BOM retains
 the requested framework, and compatibility must be demonstrated by actual tests.
 
+**Observed compatibility boundary:** Spring 7's JUnit `SpringExtension` calls
+JUnit 6's `ExtensionContext.Store.computeIfAbsent`; it fails with JUnit 5's
+`NoSuchMethodError`. Integration tests therefore use JUnit 5's lifecycle to
+start/close the real `SpringApplication` on a random loopback HTTP port. They
+do not use `@SpringBootTest`/`SpringExtension` or substitute a mock server.
+Spring Boot Test's managed test dependencies remain available. This deliberate
+adaptation preserves both the maintained Spring release and the requested
+JUnit 5/Java 17 baseline; the real-HTTP acceptance suite guards it.
+
 The native Gradle platform uses Boot's BOM for Hibernate, Flyway, JDBC,
 Awaitility, Redis client and logging. PostgreSQL JDBC is an **implementation**
 dependency so later LISTEN code can use `PGConnection`. `gradle.lockfile` is
