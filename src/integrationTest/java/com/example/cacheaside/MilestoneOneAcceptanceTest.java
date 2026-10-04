@@ -1,5 +1,11 @@
 package com.example.cacheaside;
 
+import com.example.cacheaside.product.Product;
+import com.example.cacheaside.product.ProductInput;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.OptimisticLockException;
+import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -90,6 +96,7 @@ class MilestoneOneAcceptanceTest {
         for (String invalid : new String[]{"{\"name\":\" \",\"price\":1,\"stock\":1}",
                 "{\"name\":\"x\",\"price\":-1,\"stock\":1}",
                 "{\"name\":\"x\",\"price\":1.001,\"stock\":1}",
+                "{\"name\":\"x\",\"price\":1.000000000000000001,\"stock\":1}",
                 "{\"name\":\"x\",\"price\":1,\"stock\":-1}",
                 "{\"name\":\"x\",\"price\":1,\"stock\":1000001}",
                 "{\"name\":\"x\",\"price\":1,\"stock\":\"1\"}",
@@ -300,6 +307,32 @@ class MilestoneOneAcceptanceTest {
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM purchase_requests WHERE product_id=?",
                 Integer.class, id)).isZero();
+    }
+
+    @Test
+    void externalSqlInvalidatesAnAlreadyLoadedJpaVersion() {
+        long id = fixture(10);
+        try (var manager = application.getBean(EntityManagerFactory.class).createEntityManager()) {
+            manager.getTransaction().begin();
+            var old = manager.find(Product.class, id);
+            jdbc.update("UPDATE products SET stock=8 WHERE id=?", id);
+            old.update(new ProductInput("Stale editor", BigDecimal.ONE, 9));
+            assertThatThrownBy(manager::flush).isInstanceOf(OptimisticLockException.class);
+            manager.getTransaction().rollback();
+        }
+        assertThat(stock(id)).isEqualTo(8);
+        assertThat(jdbc.queryForObject("SELECT version FROM products WHERE id=?", Long.class, id)).isEqualTo(1);
+    }
+
+    @Test
+    void chunkedBodyCannotBypassTheByteLimit() throws Exception {
+        var request = HttpRequest.newBuilder(uri("/products"))
+                .header("Content-Type", "application/json").timeout(Duration.ofSeconds(10))
+                .POST(HttpRequest.BodyPublishers.ofInputStream(() -> new ByteArrayInputStream(new byte[8193])))
+                .build();
+        var response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).isEqualTo(413);
+        assertThat(body(response).get("code").asString()).isEqualTo("BODY_TOO_LARGE");
     }
 
     private int stock(long id) {

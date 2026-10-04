@@ -12,12 +12,17 @@ two milestones to keep the backend runner and dashboard independently reviewable
 
 | Milestone | Commits | Scope and delivery gate | State |
 |---|---:|---|---|
-| 1. Authoritative vertical slice | 4 | Reproducible boot, migrations, product API, atomic SQL purchase, persisted idempotency and real PostgreSQL evidence | In progress |
+| 1. Authoritative vertical slice | 4 | Reproducible boot, migrations, product API, atomic SQL purchase, persisted idempotency and real PostgreSQL evidence | Implemented; native acceptance verified |
 | 2. Inventory strategies | 4 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Not started |
 | 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Not started |
 | 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Not started |
 | 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Not started |
 | 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Not started |
+
+**Current handoff:** milestone 1 is the only delivered milestone. Local Docker
+execution is unavailable and explicitly recorded in [evidence.md](evidence.md);
+the checked-in CI workflow exercises the container-backed path. After publishing
+the four milestone-1 commits, pause. Milestone 2 requires the owner's next instruction.
 
 ## Milestone 1: authoritative vertical slice
 

@@ -6,7 +6,9 @@ import java.util.UUID;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 final class PostgresFixture implements AutoCloseable {
-    static final String IMAGE = "postgres:16.15-bookworm@sha256:efedf3595f1d6f415c08568ba171029bf54052e754cc9f030e3f2412b21f3d67";
+    // PostgreSQL 16.15-bookworm. Testcontainers parses digest-only references;
+    // a combined tag@digest is incorrectly treated as a different repository.
+    static final String IMAGE = "postgres@sha256:efedf3595f1d6f415c08568ba171029bf54052e754cc9f030e3f2412b21f3d67";
     final String schema = "it_" + UUID.randomUUID().toString().replace("-", "");
     final String url;
     final String username;

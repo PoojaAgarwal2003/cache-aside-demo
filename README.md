@@ -7,10 +7,16 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Development status:** milestone 1 of 6 is in progress. This is not yet the
-complete visual/cache lab. [The roadmap](docs/roadmap.md) defines 21 meaningful
-commits, delivery gates and pauses. [The supplied specification](docs/specification.txt)
+**Milestone 1 of 6 is implemented:** versioned product CRUD, atomic SQL
+purchases, persisted idempotency and real PostgreSQL acceptance. **Paused before
+milestone 2.** This is not yet the complete visual/cache lab.
+[The roadmap](docs/roadmap.md) defines 21 meaningful commits and delivery gates.
+[Evidence](docs/evidence.md) distinguishes native PostgreSQL results from the
+locally blocked Docker path. [The supplied specification](docs/specification.txt)
 is the full target, not a list of already implemented features.
+
+[API walkthrough](docs/api.md) | [Architecture](docs/architecture.md) |
+[Operating guide](docs/operations.md) | [Limitations](docs/limitations.md)
 
 ## Prerequisites and pinned stack
 
@@ -43,15 +49,18 @@ silently return to the old Boot 3.3.5 stack or upgrade Java to hide incompatibil
 From this repository in PowerShell:
 
 ```powershell
-docker compose up -d --wait
-.\gradlew.bat bootRun --args="--spring.profiles.active=demo"
+.\scripts\start.ps1
+# In another terminal:
+Invoke-RestMethod http://127.0.0.1:8080/status
+.\scripts\stop.ps1
 ```
 
 On Linux/macOS:
 
 ```sh
-docker compose up -d --wait
-./gradlew bootRun --args='--spring.profiles.active=demo'
+./scripts/start.sh demo
+# Ctrl+C stops the foreground app; then:
+./scripts/stop.sh
 ```
 
 The application binds to `127.0.0.1:8080`, PostgreSQL to `127.0.0.1:55432`,

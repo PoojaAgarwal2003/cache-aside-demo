@@ -1,0 +1,28 @@
+name: Verify milestone
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17.0.20+101' # Adoptium semver for JDK 17.0.20.1+1
+      - name: Check wrapper integrity and shell syntax
+        run: |
+          echo '238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
+          for file in scripts/*.sh; do bash -n "$file"; done
+          docker compose config --quiet
+      - name: Real PostgreSQL Testcontainers acceptance and build
+        run: ./scripts/verify.sh

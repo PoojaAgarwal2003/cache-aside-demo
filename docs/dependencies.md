@@ -30,6 +30,8 @@ do not use `@SpringBootTest`/`SpringExtension` or substitute a mock server.
 Spring Boot Test's managed test dependencies remain available. This deliberate
 adaptation preserves both the maintained Spring release and the requested
 JUnit 5/Java 17 baseline; the real-HTTP acceptance suite guards it.
+The CI action consumes Adoptium's semantic version `17.0.20+101`, which maps
+to the selected JDK's upstream version `17.0.20.1+1`; these are not two JDKs.
 
 The native Gradle platform uses Boot's BOM for Hibernate, Flyway, JDBC,
 Awaitility, Redis client and logging. PostgreSQL JDBC is an **implementation**
