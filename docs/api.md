@@ -41,3 +41,49 @@ Invoke-RestMethod "$base/products/$($p.id)" -Method Patch -ContentType "applicat
 There is **no automatic fixture seed**. Creates, edits and deletes survive
 restart. Later guided scenarios will use explicit per-run isolated fixtures;
 migrations never restore Laptop/Keyboard/Monitor over user edits.
+
+## Atomic purchases and retries
+
+`POST /products/{id}/purchase?strategy=ATOMIC_SQL` accepts `{"quantity":1}`.
+The omitted body defaults to 1; null, missing quantity in an object, fractions,
+numeric strings and quantities outside 1-1000 are invalid. ATOMIC_SQL is the
+default and the only implemented strategy in milestone 1; other strategies
+return 400 rather than silently substituting one.
+
+**Idempotency-Key is required:** 1-128 ASCII letters, digits, `.`, `_`, `:` or
+`-`. Keys are scoped to `X-Client-Id` (1-64 safe ASCII characters, default
+`local`), SHA-256 hashed in storage, never logged. The canonical fingerprint
+includes product ID, quantity and resolved strategy. A key reused with a
+different fingerprint returns **409 IDEMPOTENCY_CONFLICT**.
+
+```powershell
+$headers = @{ "X-Client-Id" = "buyer-1"; "Idempotency-Key" = "purchase-1" }
+Invoke-RestMethod "$base/products/$($p.id)/purchase" -Method Post `
+  -Headers $headers -ContentType "application/json" -Body '{"quantity":1}'
+# Retry exactly the same request/key: no second decrement, replayed=true.
+Invoke-RestMethod "$base/products/$($p.id)/purchase" -Method Post `
+  -Headers $headers -ContentType "application/json" -Body '{"quantity":1}'
+```
+
+The unique database claim is acquired **before** simulated work. The conditional
+stock decrement and terminal request/ledger result commit in one transaction.
+The database's deferred constraint prevents accidentally committing an unfinished
+claim. `purchase_ledger` is a view of committed SOLD request rows, not a second
+independently written ledger. Product deletion never cascades into history.
+
+200 SOLD, 409 OUT_OF_STOCK and 404 NOT_FOUND are stable terminal outcomes.
+An out-of-stock replay remains out-of-stock even after an administrative refill;
+a new logical purchase needs a new key. A replay preserves the original
+`purchaseId`, stock/version snapshot, attempts and `originalRequestId`; its
+current `requestId` and observed `durationMs` describe this HTTP attempt.
+`X-Purchase-Result` and `Idempotency-Replayed` identify the result.
+
+Lock/claim waits are bounded to 2 seconds, individual statements to 5 seconds,
+the transaction to 8 seconds and pool acquisition to 2 seconds. Retry a 503 or
+lost response with **the same key**. An unknown commit result is not a proof of
+rollback. Keys are retained for the life of the lab database in this milestone;
+unbounded long-running public storage is not supported.
+
+Stock-left is that purchase's committed snapshot, not necessarily stock now.
+Safety assumes no concurrent unsafe/admin stock mutations. This is local
+database deduplication, **not exactly-once execution or real payment integration**.

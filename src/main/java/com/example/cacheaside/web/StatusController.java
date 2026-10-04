@@ -20,7 +20,7 @@ public class StatusController {
         jdbc.queryForObject("SELECT 1", Integer.class);
         return new Status("FlashSale Lab", 1, "AVAILABLE", "NOT_IMPLEMENTED",
                 properties.demoEnabled(), properties.readDelayMs(), properties.purchaseDelayMs(),
-                List.of("PRODUCT_API"));
+                List.of("PRODUCT_API", "ATOMIC_SQL", "PERSISTED_IDEMPOTENCY"));
     }
 
     public record Status(String application, int milestone, String database, String cache,
