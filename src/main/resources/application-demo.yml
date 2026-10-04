@@ -1,0 +1,4 @@
+lab:
+  demo-enabled: true
+  read-delay-ms: ${READ_DELAY_MS:1000}
+  purchase-delay-ms: ${PURCHASE_DELAY_MS:100}

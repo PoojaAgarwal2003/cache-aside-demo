@@ -1,0 +1,713 @@
+FLASHSALE LAB - IMPROVED BUILD PROMPT
+====================================
+Revision: 2026-10-04
+
+This is the revised, normative implementation prompt. It replaces the earlier
+image transcription rather than appending conflicting requirements to it.
+ORIGINAL_IMAGE_TRANSCRIPTION.txt preserves the original reconstruction and
+the reading order of all 15 source images.
+
+Purpose of the revision:
+- Keep the original Java, Spring, PostgreSQL, Redis learning project.
+- Turn it into a visual, measurable concurrency and cache-consistency lab.
+- Fix contradictory cache requirements and overstated correctness claims.
+- Add an atomic-SQL baseline, idempotency, controlled race tests, and Windows
+  support without introducing Kubernetes, Kafka, microservices, or an LLM.
+
+BEGIN IMPLEMENTATION PROMPT
+============================
+
+1. PROJECT GOAL AND BOUNDARIES
+------------------------------
+
+Build a complete, runnable local project called "cache-aside-demo", displayed
+in the UI as "FlashSale Lab".
+
+Main question:
+"50 buyers. 10 items. Which strategies prevent overselling, what does each
+cost, and what changes when Redis fails?"
+
+Secondary question:
+"When is a cache fast, stale, unavailable, or doing more work than expected?"
+
+Deliver actual working code, a small polished dashboard, automated tests,
+Bruno examples, repeatable load experiments, and honest documentation.
+Do not stop at a scaffold, architecture diagram, or mocked demonstration.
+Implement in the phases below and report blockers honestly.
+
+This is a SINGLE application-instance educational lab with real PostgreSQL
+and Redis processes. State this prominently. Distributed locks are explored,
+but application-local recovery/run controls are not claimed to coordinate
+multiple application instances. Do not claim production certification,
+linearizable cached reads, guaranteed availability, or exactly-once execution.
+
+Default safety:
+- Bind application and published database/Redis ports to loopback.
+- Unsafe experiments and mutation/debug endpoints require an explicit demo
+  profile/flag, and must target the dedicated lab database and fixtures.
+- The NONE purchase strategy is intentionally incorrect. Disable it outside
+  that profile; label it prominently everywhere.
+- No real payments, customer data, external load targets, or public deployment.
+- Do not stop unrelated processes, delete existing volumes, overwrite an
+  existing repository, commit, or push without explicit authorization.
+- Use localhost-only proxy bypass if needed; never disable TLS verification
+  or bypass a corporate proxy for arbitrary external hosts.
+
+2. TECHNOLOGY AND REPRODUCIBILITY
+--------------------------------
+
+Keep:
+- Java 17, Spring Boot, Spring Web, Bean Validation, Spring Data JPA,
+  Spring Data Redis, PostgreSQL JDBC, Resilience4j, and Gradle Groovy DSL.
+- Plain Java, records for DTOs, constructor injection; no Lombok.
+- PostgreSQL 16 and Redis 7 in Docker Compose.
+- Flyway for schema migrations instead of init.sql plus ad-hoc upgrade SQL.
+- JUnit 5, Spring Boot Test, Testcontainers, and Awaitility for tests.
+- A small same-origin HTML/CSS/JavaScript UI served by Spring Boot.
+  No frontend framework or Node runtime is required to run the application.
+  Node/Playwright may be development-only browser-test dependencies.
+- Bruno for convenient manual API exploration, not as the only test suite.
+
+The photographs pinned Boot 3.3.5, Gradle 8.14.3, and Resilience4j 2.2.0.
+Treat these as historical, not a claim that they remain supported.
+Before implementation, select and document a mutually compatible maintained
+Java-17-compatible dependency set using official release/support information.
+Pin exact versions and container image digests; no dynamic "+" or "latest".
+If maintenance requires a Java major upgrade, explain the tradeoff and record
+the decision instead of silently changing the language target.
+
+Include both Gradle wrapper scripts, wrapper JAR, properties, and distribution
+checksum. A consumer must not need a global Gradle installation.
+Use the PostgreSQL driver in implementation scope for PGConnection access.
+Use Boot dependency management where available and a pinned compatible
+Testcontainers BOM. Record selected versions in README.
+
+Do not invent or manually fabricate package lockfiles or wrapper binaries.
+Use the ecosystem tools to generate them.
+
+3. DELIVERABLE STRUCTURE
+------------------------
+
+Retain clear feature packages under com.example.cacheaside:
+  product/    entity, repository, DTOs, service, controller
+  cache/      cache client, invalidation, generation guards, recovery state
+  purchase/   five strategies, request deduplication, ledger, controller
+  ratelimit/  sliding-window limiter and filter
+  demo/       bounded scenario runner, run storage, controlled fault hooks
+  web/        request tracing, exception mapping, diagnostics
+
+Expected repository contents:
+  README.md
+  build.gradle, settings.gradle
+  gradlew, gradlew.bat, gradle/wrapper/
+  docker-compose.yml
+  .env.example, .gitignore
+  src/main/java/com/example/cacheaside/...
+  src/main/resources/application.yml
+  src/main/resources/application-demo.yml
+  src/main/resources/application-benchmark.yml
+  src/main/resources/db/migration/...
+  src/main/resources/static/index.html, styles.css, app.js
+  src/main/resources/logback-spring.xml
+  src/test/... and integration-test sources
+  scripts/start.ps1, stop.ps1, verify.ps1
+  scripts/fire-requests.ps1, flash-sale.ps1
+  scripts/start.sh, verify.sh, fire-requests.sh, flash-sale.sh
+  bruno/ with environment, requests, assertions, and explanatory docs
+  docs/architecture.md, experiments.md, limitations.md, demo.md
+  tests/browser/ and development-only test manifest if Playwright is used
+
+Do not reproduce a rigid class list at the expense of a coherent design.
+Keep abstractions minimal; do not create one generic framework per feature.
+Keep generated reports/logs/screenshots out of source control by default.
+Do not include secrets or personal filesystem paths in published artifacts.
+
+4. DATABASE: AUTHORITATIVE STATE
+--------------------------------
+
+Use an isolated lab schema and Flyway versioned migrations for:
+- products: id BIGSERIAL PK, name VARCHAR(255) NOT NULL,
+  price NUMERIC(12,2) NOT NULL, stock INTEGER NOT NULL,
+  version BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now().
+- Purchase request/ledger storage sufficient to implement section 8.
+- Persisted demo-run metadata/results sufficient to survive an app restart.
+
+Seed Laptop (1299.00, 10), Keyboard (89.50, 50), Monitor (349.99, 20)
+only in the demo fixture setup; migrations/restarts must not reset user edits.
+Give each automated run its own fixture product and record its runId.
+
+Version ownership:
+- A BEFORE UPDATE trigger sets NEW.version = OLD.version + 1 and updated_at.
+  Every ordinary SQL UPDATE, including external SQL, must advance the version.
+- JPA may use @Version with the same +1 semantics. Verify that flush, refresh,
+  and optimistic checks agree with the trigger; never increment twice.
+- JdbcTemplate purchase SQL uses the returned database version as authoritative.
+- Direct-SQL examples must exercise this trigger. Merely adding @Version
+  to a Java class is not a solution for writes made outside Hibernate.
+
+Add an AFTER INSERT/UPDATE/DELETE trigger calling pg_notify on product_changes.
+Include operation, productId and enough version/change information to explain
+the event. Delivery occurs after commit. Payloads are small, not full products.
+
+Because NONE must demonstrate negative inventory, the dedicated lab fixture
+table may deliberately omit CHECK(stock >= 0). Explain this exception.
+Validate nonnegative starting/reset stock at APIs; reject safe runs starting
+from negative fixtures. Safe-strategy guarantees assume no concurrent unsafe
+or administrative stock mutations. Do not present this schema as production
+inventory storage; document the database CHECK as an additional real-system
+defense that would intentionally prevent this particular negative-stock demo.
+
+Use Flyway with Hibernate ddl-auto=validate and open-in-view=false.
+Do not use Hibernate schema mutation or destructive recreation on startup.
+
+5. CACHE CONTRACT: EVENTUAL, INVALIDATE-ONLY
+-------------------------------------------
+
+PostgreSQL is the source of truth. Cache only product reads, never the
+authoritative stock decision during a purchase.
+
+API writes, committed purchases, and database notifications INVALIDATE cached
+products. The listener never refreshes products by reading and writing a new
+value. This avoids contradictory "evicted but immediately repopulated" rules.
+Only a read path may populate the product cache.
+
+Read response:
+{source, responseTimeMs, cacheWriteOutcome, flow, data}
+Sources:
+  REDIS_CACHE
+  REDIS_CACHE_AFTER_WAIT
+  DATABASE
+  DATABASE_FALLBACK
+X-Cache: HIT, MISS, BYPASS respectively.
+200 for found; 404 for absent, with the same explanatory envelope.
+Use dynamic product IDs in explanations, not hardcoded product:1.
+
+Represent cache lookup and write outcomes with types:
+- Lookup: HIT(value), HIT_ABSENT, MISS, UNAVAILABLE, CORRUPT.
+- Write: STORED, SKIPPED_UNAVAILABLE, REJECTED_GENERATION,
+  REJECTED_LOCK, FAILED.
+- Inspect: presence, value, remaining TTL, availability, and error separately.
+  Never report Redis unavailable as "key missing" or a successful eviction.
+
+Use JSON DTOs, not directly serialized lazy JPA entities.
+Positive TTL: 300 seconds + random 0..60 seconds.
+Negative-cache TTL: 30 seconds, represented by a versioned typed envelope.
+Use a fixed expiry, never sliding refresh on read hits.
+Corrupt/unknown-schema entries become misses with explicit diagnostics and
+best-effort guarded removal.
+
+Stale-fill protection:
+- Use a process/cache epoch and per-product unpredictable generation tokens.
+  Include the epoch in Redis data, lock, and generation key namespaces.
+- Initialize a missing generation with SET NX and a fresh random token.
+  Never normalize missing generations to a reusable token such as 0.
+- Capture the epoch/generation BEFORE reading PostgreSQL.
+- A Lua invalidation atomically changes the generation and deletes cached
+  positive/negative data. A late reader cannot republish under the old token.
+- A Lua fill atomically checks captured generation and, when protection is on,
+  current rebuild-lock ownership before storing with TTL.
+- Keep generation tokens longer than the maximum data/fill lifetime; an expired
+  or missing token rejects an old fill. Bound query/fill deadlines and document
+  key cleanup. Inactive generations must not accumulate forever.
+- Old epochs expire naturally; clear-all/recovery rotates to a fresh epoch
+  instead of blocking Redis with KEYS or indiscriminate FLUSHDB.
+- If using SCAN for maintenance, restrict it to this app's old namespaces and
+  do not claim SCAN plus DELETE is an atomic global invalidation.
+
+After successful API transaction commit:
+- Attempt invalidate through the same helper.
+- If invalidation fails, mark local cache readiness BYPASS before returning.
+  Report the committed database write accurately; do not return a fake rollback
+  or encourage duplicate submission because cache cleanup failed.
+- A post-commit invalidation is a fast path. Listener invalidation may repeat
+  it harmlessly; duplicate notifications must not republish old values.
+
+Honest consistency claim:
+- Generation checks prevent an old in-flight fill from surviving a COMPLETED
+  invalidation. They do not eliminate the interval between database commit
+  and asynchronous notification processing.
+- An already executing read may race a write. Cached reads are not linearizable.
+- Notification loss can leave data stale until expiry or recovery invalidation.
+- Document TTL from fill, maximum in-flight query duration, and detection lag;
+  do not claim a strict commit-to-freshness deadline of exactly 360 seconds.
+- After writes quiesce and invalidation completes, subsequent reads must
+  converge to the current database value.
+
+6. STAMPEDE CONTROL, NOT AN ABSOLUTE SINGLE-QUERY PROMISE
+-------------------------------------------------------
+
+Use Redis SET NX PX with a random owner token for a per-product rebuild lease.
+Defaults: lock TTL 5s, waiter deadline 3s, polling interval 50ms.
+Release with compare-token-and-delete Lua, never unconditional DEL.
+
+Read sequence:
+1. Check cache/readiness; on unavailable, use bounded DB fallback without fill.
+2. On miss, attempt the rebuild lock.
+3. After acquiring, RECHECK cache before reading the database.
+4. Capture valid generation; query DB; publish only if generation, epoch,
+   readiness, and owner are still valid.
+5. Other callers wait with bounded polling, respecting interruption/deadlines.
+6. On timeout, use bounded uncached DB fallback or explicit overload rejection.
+   Never let a waiter publish without owning the lease.
+
+Add a bounded DB-fallback bulkhead/concurrency limit with queue/deadline limits.
+Cache failure must not create unlimited queued DB work.
+Return an explicit 503 when capacity is exhausted; do not claim every request
+must succeed during an outage.
+
+When stampede protection is off, retain generation fencing but omit the lease
+requirement so the experiment isolates duplicate DB loading, not cache safety.
+A lease expiring during a slow load can allow another database query.
+Reject the old owner's fill; do not claim one query forever under failures.
+
+7. LISTENER, CIRCUIT BREAKERS, AND RECOVERY
+-----------------------------------------
+
+DbChangeListener uses SmartLifecycle with an owned JDBC connection, bounded
+notification waits, reconnect backoff, shutdown cleanup, and visible health.
+Do not consume a permanently checked-out application-pool connection.
+
+LISTEN/NOTIFY is a best-effort invalidation hint, NOT durable CDC.
+Do not claim notifications can be replayed after disconnect.
+On known listener disconnection, bypass the cache. On startup/reconnect,
+register LISTEN successfully and rotate cache epoch before enabling reads.
+Already-started old-epoch fills cannot become visible in the new epoch.
+Document unobserved failure/delivery gaps and TTL as the fallback.
+Durable outbox or logical-decoding CDC is an explicitly deferred extension,
+not something silently approximated by notifications.
+
+Use separate named Resilience4j breakers for:
+  product-cache, rate-limit, stock-admission.
+They share Redis's physical failure domain but not counters or readiness.
+An unrelated rate-limit success must not mark product cache data safe.
+
+Suggested per-breaker defaults:
+  timeout/connect-timeout 500ms,
+  count-based window 10, minimum calls 5, failure threshold 50%,
+  open wait 10s, half-open trial calls 3.
+Centralize Redis access so calls cannot accidentally bypass their breaker.
+
+Product-cache readiness is separate from circuit state:
+  READY / BYPASS / RECOVERING.
+- OPEN bypasses reads/fills.
+- HALF_OPEN runs bounded health probes, not trusted cached reads.
+- CLOSED alone does not mean READY.
+- A serialized recovery coordinator rotates epoch, confirms listener health
+  and Redis readiness, then atomically publishes READY.
+- Failures keep bypass active and surface a recovery reason.
+- Do not perform reentrant cache flushes inside breaker transition callbacks.
+
+Use monotonic clocks for local deadlines/durations.
+Await states with a deadline in tests, not "exactly six GETs opens it" or
+"the fourth request must hit". Probe/call counts are observables, not promises.
+Explicitly report database unavailable rather than inventing cached success
+for writes or claiming an outage fallback that did not occur.
+
+8. PURCHASES: FIVE STRATEGIES AND REQUEST IDEMPOTENCY
+---------------------------------------------------
+
+Use JdbcTemplate/TransactionTemplate and plain parameterized SQL.
+Default strategy: ATOMIC_SQL.
+
+NONE:
+  Read stock, check, simulated work, then decrement without a stock predicate.
+  Deliberately wrong, demo-only. Do not accidentally protect it with a row
+  lock acquired before the check. Use controlled barriers to reproduce the race.
+
+PESSIMISTIC:
+  In one transaction, SELECT ... FOR UPDATE, verify stock, perform simulated
+  work, decrement, record purchase, commit. Configure lock/statement deadlines.
+
+OPTIMISTIC:
+  Read stock/version, perform simulated work, conditional update WHERE id=?
+  AND version=? AND stock>=?, retry a conflict in a FRESH bounded attempt.
+  Maximum 20 attempts with small bounded jitter.
+  Do not reuse a stale entity/snapshot or retry in a rollback-only transaction.
+  Exhaustion is GAVE_UP, not OUT_OF_STOCK.
+
+ATOMIC_SQL:
+  Do simulated work before the atomic inventory decision, then:
+  UPDATE products SET stock = stock - :quantity
+  WHERE id = :id AND stock >= :quantity
+  RETURNING stock, version;
+  The database trigger owns the version/timestamp update.
+  Distinguish no product from insufficient stock without misreporting success.
+  This is the simple baseline against which extra coordination is measured.
+
+REDIS_ASSISTED (accept legacy query value "redis" as an alias):
+  Redis Lua may admit requests using a TTL-bounded advisory stock counter.
+  PostgreSQL still commits with the same conditional update as ATOMIC_SQL.
+  Redis is an admission optimization, not the source of inventory truth.
+  A Redis rejection means ADMISSION_REJECTED, not proof that DB stock is zero.
+  No automatic fallback to a different purchase strategy; surface Redis failure.
+
+  Include a random counter epoch and unique reservation IDs. Reserve/release
+  scripts must be idempotent per reservation and compensation must verify the
+  counter epoch. Never blindly INCRBY a missing, replaced, or expired key.
+  Bound reservation metadata TTL and document all Lua return states.
+
+  On known DB rollback, compensate best-effort and record failed compensation.
+  On unknown commit outcome, first resolve through the persisted idempotency
+  record. Never blindly refund a possibly committed purchase.
+  Crashes, missed compensation, external stock edits, and expired counters
+  can cause counter drift or false rejections. Show this limitation honestly.
+  Provide controlled reconciliation/reset only after the fixture's in-flight
+  run has drained; show counter-vs-DB values and unresolved reservations.
+  Do not resync stock after every purchase in a way that restores quantities
+  still reserved by concurrent buyers. Admin resets/external changes must
+  invalidate the advisory epoch or mark it untrusted.
+
+Idempotency is REQUIRED for purchase APIs, including experiments:
+- Scope Idempotency-Key by client identity; validate length and character set.
+- Persist a canonical fingerprint of productId, quantity, and resolved strategy.
+- A reused key with a different fingerprint returns 409 IDEMPOTENCY_CONFLICT.
+- Same-key concurrent/retried requests cannot decrement twice.
+- Persist the committed purchase result and stock decrement in ONE PostgreSQL
+  transaction; enforce uniqueness with a DB constraint.
+- Acquire/resolve the DB idempotency claim before creating a Redis reservation.
+  Duplicate requests do not reserve stock again.
+- Persist stable terminal business outcomes and return them on replay.
+  Mark replays explicitly; preserve the original stock result/version.
+- Transient failure before commit must not permanently poison the key.
+  Bound contention waits and distinguish in-progress/retryable outcomes.
+- Simulate "commit succeeded, HTTP response lost": retrying the same key
+  returns the existing result. Count unique ledger purchases, not HTTP 200s.
+- No real external payment occurs. The fake delay is not a transactionally
+  coordinated payment integration or exactly-once delivery guarantee.
+
+Implement one shared ledger/idempotency boundary where possible, not five
+independent copies of request deduplication.
+
+Safety invariants for protected strategies under the documented run conditions:
+- Committed stock never becomes negative.
+- Sum of unique committed sold quantities + final stock = initial stock.
+- At most one committed purchase per scoped idempotency key.
+- Unsuccessful/replayed requests do not secretly decrement stock.
+- Every reported SOLD has a committed ledger row.
+
+Do not require all protected strategies to sell every item under arbitrary
+timeouts. Report liveness separately: conflicts, GAVE_UP, admission rejects,
+overload, Redis failures, and unsold inventory.
+For the small healthy controlled ATOMIC_SQL/PESSIMISTIC fixture, configure
+adequate deadlines and assert 10 unique unit sales from 50 buyers/10 units.
+
+9. HTTP CONTRACT AND RATE LIMITING
+----------------------------------
+
+Validate IDs, quantities, names, price precision/scale, stock ranges, limits,
+timeouts, and strategies. Bound numeric inputs and JSON body sizes.
+Do not expose SQL errors, stack traces, or secrets in HTTP responses.
+Use consistent error bodies: {code, message, requestId, retryable}.
+
+Product API:
+- GET /products/{id}: cache envelope, 200 or 404.
+- POST /products: validated create, 201 plus Location.
+- PATCH /products/{id}: explicit partial update.
+- Keep PUT /products/{id} as a documented partial-update compatibility alias
+  if preserving the original Bruno workflow; distinguish absent from invalid
+  null fields. Explain this nonstandard compatibility choice.
+- DELETE /products/{id}: 204 or 404.
+- Return 409 for genuine optimistic update conflicts.
+
+Purchase API:
+- POST /products/{id}/purchase?strategy=...
+- Body {"quantity":1}; an omitted body defaults to 1, invalid null/zero/negative
+  or oversized quantities return 400.
+- Require Idempotency-Key, expose X-Purchase-Result and replay metadata.
+- 200 SOLD; 409 OUT_OF_STOCK, ADMISSION_REJECTED, GAVE_UP or key conflict;
+  404 NOT_FOUND; 503 dependency unavailable, overload or bounded wait failure;
+  400 invalid request. Include machine-readable distinctions and retryability.
+- Include strategy, meaning, productId, quantity, committed stockLeft/version,
+  attempts, requestId, purchaseId where applicable, durationMs, and replayed.
+- Response stockLeft is the snapshot at that purchase, not a claim of current
+  stock after other buyers have committed.
+
+Rate limiter:
+- Redis sorted-set sliding-window log with one atomic Lua decision.
+- Use Redis server time and unique members; define the boundary precisely:
+  retain accepted timestamps in (now - window, now].
+- Default 10 accepted requests per client per 10 seconds.
+- Return 429 with Retry-After = ceiling of remaining seconds, minimum 1,
+  and X-RateLimit-Limit / X-RateLimit-Remaining.
+- Expire state and reject oversized identifiers.
+- Demo X-Client-Id is a controlled test identity, NOT authentication.
+  Explain why it is not trustworthy for public rate limiting.
+- Outage policy is fail-open for the lab, explicitly reported as BYPASSED;
+  retain the DB bulkhead. Never invent a remaining quota when Redis is down.
+- Apply to public product/purchase routes, not local status/run polling.
+  Run distinct-client load scenarios separately from same-client limiter tests.
+
+Debug endpoints, demo-only:
+- GET /cache/status: each breaker, product readiness, listener health,
+  current epoch, last recovery/error, metrics, and plain-English explanation.
+- GET /cache/products/{id}: distinguish absent, present, expired, unavailable.
+- DELETE /cache/products/{id}: idempotent invalidation; absent is not a 500.
+- DELETE /cache/products: rotate epoch; report "invalidated namespace",
+  not a fabricated count of physically deleted keys.
+
+10. VISUAL DEMO: SIMPLE, REAL, AND SHAREABLE
+------------------------------------------
+
+Build a responsive single-page dashboard, not another infrastructure platform.
+Use clear typography, accessible contrast, keyboard controls, reduced-motion
+support, and text/icons in addition to color. Bundle runtime assets locally.
+
+Main screen:
+- Starting stock, buyer count, concurrency, strategy, and simulation delay.
+- "Run experiment", "Compare all five", and cancellation controls.
+- Large live counters: committed sales, replays, rejections, remaining DB stock,
+  negative-stock warning, retries, cache hits, database work, Redis/readiness.
+- A compact chronological event view: buyer -> cache/Redis -> database -> result.
+  Let a user inspect the actual request, source, and reason.
+- Side-by-side comparison table with safety, completion, unique sales, remaining
+  stock, errors, DB operations, elapsed time, throughput, and p50/p95/p99.
+- Clearly separate synthetic delay, harness time, HTTP latency, and database
+  operation time. A stylized moving dot is not itself evidence of network timing.
+
+Required guided scenarios:
+1. Cold read then warm cache hit.
+2. Concurrent cold reads, stampede control on/off.
+3. 50 buyers / 10 units, all five purchase strategies.
+4. A slow old reader racing a committed update and invalidation.
+5. Redis unavailable/recovering; show fallback and admission differences.
+6. Lost purchase response followed by same-key retry.
+
+Use bounded polling of a persisted run snapshot plus cursor-based events
+unless SSE offers a clear implementation advantage.
+The UI must not calculate its own fake outcomes or infer SOLD from animation.
+Use backend runId/requestId/purchaseId to correlate actual evidence.
+Bound in-memory event buffers; indicate truncation/gaps and retain authoritative
+run totals/results. Restarted interrupted runs are INTERRUPTED, not completed.
+Preserve final results and JSON export across refresh/restart.
+
+Do not expose arbitrary shell execution or Docker socket controls to the web.
+Use documented terminal commands to stop only this project's Redis container.
+Dashboard fault hooks may pause a local test boundary or reject a dependency
+call, but must label that as an injected fault, not an actual Redis shutdown.
+Disable all fault hooks outside the demo/test profile.
+Require same-origin controls for state-changing demo actions; no permissive CORS.
+
+Create a "showcase" layout suitable for a 30-60 second screen recording, with
+large readable counters and minimal clutter. Do not add unrelated 3D effects.
+Capture screenshots from the running app; do not substitute design mockups.
+
+11. EXPERIMENT HARNESS, LOGGING, AND MEASUREMENTS
+-----------------------------------------------
+
+Implement one shared bounded runner; PowerShell/Bash scripts and dashboard
+invoke it rather than reproducing correctness logic in three places.
+Purchase/read experiments must traverse the real local HTTP filters/controllers.
+Only target this application's loopback endpoint, never a user-supplied host.
+
+Default fixture: 50 buyers, stock 10, quantity 1.
+Hard caps: 100 buyers, concurrency 50, one active experiment at a time.
+Bound thread pools, queued requests, DB connections, query timeouts and total
+run duration. HTTP server and runner executors must not deadlock each other.
+Refuse reset/strategy changes on an active fixture; cancellation stops new
+dispatch and drains/settles in-flight transactions before final inventory checks.
+
+Each run stores:
+runId, seed, exact parameters, unique fixture/client identities,
+start/end times, versions, delays, warm/cold state, measured results,
+errors/timeouts/retries, invariant verdicts, and completion state.
+Use seedable jitter in tests. OS/DB scheduling is not made deterministic by
+a seed; say so. Use barriers/latches at specific boundaries in race tests.
+Persist final data before marking a run complete. A restart never silently
+re-runs purchases or erases the ledger.
+
+Ledger-driven accounting:
+- Separate intended buyers, HTTP attempts, HTTP responses, and unique sales.
+- Report quantities, not just count(SOLD), for quantity > 1.
+- Do not claim "correct" merely because sold <= initial stock.
+- Query committed ledger and final DB stock after quiescence and check the
+  actual conservation equation.
+- Unknown/timed-out HTTP outcomes require reconciliation through purchase keys.
+  If reconciliation cannot finish, mark run INCONCLUSIVE, not PASS.
+- Repeated comparison runs use isolated fixtures and fresh identities.
+- Do not reuse rate-limit keys across tests and mistake throttling for contention.
+
+Metrics:
+- Instrument DB reads/writes by purpose: user read, fallback, purchase,
+  listener/admin, verification. SQL log grep is explanatory only.
+- Each completed product GET emits one terminal source classification.
+  Both DATABASE and DATABASE_FALLBACK may read DB. Count queries directly;
+  do not equate CACHE MISS alone with total DB reads.
+- Record actual cache-write outcome; never log CACHE FILL when a put failed.
+- Use System.nanoTime for durations; UTC timestamps for display.
+- Document percentile definition/sample count. Show success latency separately
+  from all-attempt latency, errors, throughput and end-to-end completion.
+- Small local samples are observations, not statistically robust service SLAs.
+- Propagate requestId/runId into MDC and clean up in finally, including workers.
+- logs/app.log and logs/cache-flow.log rotate with bounded disk usage.
+  Do not log secrets, unbounded request bodies, or raw idempotency credentials.
+
+Profiles:
+- default: no artificial latency; demo/debug/unsafe controls off.
+- demo: explicit 1000ms read delay and 100ms simulated purchase work, each
+  configurable and visible. Slow-mode delays model work, not real DB speed.
+- benchmark: both delays 0, controlled warmups, repeated trials, raw export.
+  Never mix benchmark and scripted-delay results in a claimed speedup.
+
+12. AUTOMATED ACCEPTANCE TESTS
+------------------------------
+
+Use real PostgreSQL/Redis Testcontainers for transaction, trigger, Lua and
+failure tests. Mock-only tests do not demonstrate these guarantees.
+Separate fast unit tests, integration tests, and browser tests.
+Use isolated test schemas/fixtures, bounded waits, cleanup, and useful failures.
+Container/tool unavailability is a reported prerequisite failure, not a pass.
+
+Required automated cases:
+
+A. Startup/migrations
+- Clean migration, restart without reseeding/resetting, existing-schema upgrade.
+- Trigger increments version on JPA, JDBC and direct SQL changes.
+- Rollback emits no committed invalidation notification or purchase ledger row.
+
+B. Cache behavior
+- Cold found/absent reads populate, subsequent reads hit with expected payloads.
+- TTLs are within configured maximums and decrease; do not require a freshly
+  sampled TTL to equal its original whole-second value.
+- Corrupt JSON, Redis unavailable and absent keys are distinguishable.
+- API update/delete/create invalidates positive/negative cache correctly.
+- Direct SQL eventually invalidates; wait for the listener event before
+  expecting a miss/new value. Do not require an immediate cache HIT.
+- Pause reader after it fetched old DB data, commit writer, complete invalidation,
+  then release reader: old fill must be rejected; next read sees current data.
+- Repeat with a negative-cache fill racing creation.
+- Rotate epoch/recover while a fill is paused: old data never enters new epoch.
+- Listener disconnect, missed change, reconnect: old epoch is not trusted.
+
+C. Stampede
+- Controlled overlap, healthy dependencies, no expiry/deadline violation:
+  a single fixture load occurs and other callers hit/wait.
+- Do not assert exactly 19 WAIT and 80 HIT in a general load run.
+- Protection disabled: controlled overlap demonstrates duplicate reads.
+- Owner stalls beyond lease; another loader proceeds; old owner cannot release
+  its successor's lock or publish stale data.
+- Wait timeout and DB bulkhead exhaustion terminate with explicit outcomes.
+- Unknown write/invalidation outcomes force conservative bypass/recovery.
+
+D. Purchases
+- A barrier-controlled NONE race reliably demonstrates overselling.
+  Do not depend only on Thread.sleep and hope for an interleaving.
+- All four protected strategies satisfy safety/conservation under their
+  supported, isolated fixture conditions.
+- Healthy ATOMIC_SQL/PESSIMISTIC: 50 distinct buyers, 10 units -> 10 unique
+  unit sales and zero stock, with no unexplained failures.
+- Optimistic version conflict, external SQL conflict, retry exhaustion.
+- Quantities greater than 1 and insufficient remaining stock.
+- Same key concurrently and after lost response: one committed decrement.
+- Same key/different payload: explicit conflict.
+- Redis reserve then known DB rollback: compensation does not double-release.
+- Redis key expiry/reset before compensation: no resurrection/inflation.
+- Redis unavailable, failed compensation, and unknown DB commit:
+  report honest outcomes and reconcile ledger without duplicate purchase.
+- Inject process termination before/after commit in an owned test child process;
+  on restart, ledger/run reporting distinguishes committed and interrupted work.
+
+E. Rate limits/recovery
+- Deterministic clock boundary tests of (now-window, now] semantics.
+- 15 requests with one fresh identity inside one controlled window:
+  10 allowed, 5 rejected; next identity unaffected.
+- Real integration test accounts for elapsed time rather than assuming a slow
+  sequential script always stays within ten seconds.
+- Lua atomicity under concurrent clients, retry headers, key expiry.
+- Fail-open reported during Redis failure, DB bulkhead still enforced.
+- Breakers are independent; rate-limit probes cannot unlock product readiness.
+- Restart actual test Redis preserving its data; stale product keys remain
+  unusable until recovery readiness is satisfied.
+
+F. UI/run reporting
+- Browser starts a real small experiment, sees persisted authoritative totals,
+  opens details, exports JSON, and retains results after page refresh.
+- Comparison shows all five strategies and unsafe warnings.
+- Cancel, retry, dependency error, interrupted run, and event-gap states.
+- Keyboard interaction, reduced motion, readable narrow/mobile layout.
+- No background unhandled errors or fake success when the backend is unavailable.
+
+13. OPERATIONS AND DOCUMENTATION
+--------------------------------
+
+Provide tested PowerShell-first commands, plus Bash equivalents.
+Use gradlew.bat on Windows and the POSIX wrapper on Linux/macOS.
+PowerShell support must not depend on Bash, seq, xargs, grep, or /dev/null.
+If PowerShell 7 is required, state that; otherwise support Windows PowerShell
+5.1 explicitly. Document Docker/Compose, JDK, and test-tool prerequisites.
+
+Docker Compose:
+- Use project-scoped service/volume names and configurable loopback host ports.
+- App runs on the host for the first version; use health-checked PostgreSQL
+  and Redis services with named persistence volumes.
+- Make clear that container recreation/persistence and cache trust are different.
+- Do not assume "Redis always keeps data across restarts".
+- Keep credentials demo-only/configurable; real secrets never enter source.
+- Routine stop preserves data. Volume deletion is a separate, explicit,
+  clearly warned destructive action, never part of normal verify/start.
+- Startup checks ports/readiness and fails with actionable diagnostics.
+- Shutdown targets only the process/container started for this project.
+
+README must include:
+- A short explanation and actual screenshot at the top.
+- Architecture/read/write/purchase/recovery diagrams, and feature-to-code map.
+- Copy-paste start, stop, test, demo and benchmark commands.
+- Settings table with defaults, units, bounds and tradeoffs.
+- API/Bruno walkthrough including PATCH/PUT compatibility and idempotency.
+- Each guided scenario: setup, action, actual invariant, expected variability.
+- Debug inspection, direct-SQL update, Redis outage/recovery, and fresh fixtures.
+- Difference between optimistic/pessimistic/atomic SQL and advisory Redis.
+- Why eviction alone is insufficient; what generation fencing does/not solve.
+- Notification loss, TTL, replay/idempotency, fail-open rate limiting,
+  DB overload, unsafe schema exception, and single-instance limitations.
+- Measured results with parameters, hardware/runtime, warmup/sample counts,
+  raw data and explicit artificial-delay disclosure.
+- Backpressure/timeouts and why safety does not imply every buyer succeeds.
+
+docs/demo.md:
+- A 30-60 second recording script: 10 units -> concurrent buyers -> NONE fails
+  -> protected comparison -> explain where inventory correctness is enforced.
+- A separate cache/outage clip rather than cramming every feature into one.
+- Suggested post hook:
+  "50 buyers. 10 items. I compared five inventory strategies - and tested what
+  happens when requests retry and Redis goes down."
+- Only quote results captured from the running implementation. No fake traffic,
+  fake benchmarks, invented screenshots or unverified scalability claims.
+
+Deferred, NOT required for this version:
+multi-instance orchestration, durable CDC/outbox, real payment gateways,
+production authentication, Kafka, Kubernetes, cloud hosting, mobile app,
+AI chatbot, and general-purpose observability platform.
+Do not add these to hide or postpone the core experiments.
+
+14. IMPLEMENTATION PHASES AND COMPLETION GATE
+--------------------------------------------
+
+Phase 1: Bootstrap, migrations/version trigger, product API, atomic SQL purchase,
+ledger/idempotency, integration tests.
+Phase 2: Remaining strategies, controlled races, Redis admission boundaries,
+conservation/retry/crash evidence.
+Phase 3: Cache generation fencing, invalidation listener, stampede, independent
+breakers/readiness, limiter, bounded fallbacks and failure tests.
+Phase 4: Shared persisted experiment runner, scripts, Bruno, real dashboard.
+Phase 5: Browser coverage, benchmark profile, screenshots, documentation/demo.
+
+Prefer a working small vertical slice at each phase.
+Do not create a beautiful dashboard over stubbed correctness logic.
+When a requirement conflicts with an observed library behavior, explain it,
+fix the contract/code coherently, and add a regression test.
+
+Before claiming completion:
+- Build and run fast tests, integration tests and browser acceptance.
+- Run real Compose app walkthrough and all five strategy comparisons.
+- Exercise Redis outage/recovery and purchase response-loss replay.
+- Verify conservation against committed ledger and DB, not client counters.
+- Check saved run export survives refresh and app restart.
+- Record actual commands/results and list any blocked/unverified items.
+- Leave documented start/stop instructions and no unintended running load.
+
+Final report: what was implemented, exact versions, how to run, actual test
+and experiment results, artifact locations, limitations, and blockers.
+Do not call the application production-ready.
+
+END IMPLEMENTATION PROMPT

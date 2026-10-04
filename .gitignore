@@ -1,0 +1,15 @@
+.gradle/
+build/
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.iml
+logs/
+.run/
+node_modules/
+test-results/
+playwright-report/
+*.hprof
+*.log

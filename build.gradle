@@ -1,0 +1,94 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '4.1.1'
+}
+
+group = 'com.example'
+version = '0.1.0'
+description = 'FlashSale Lab - a single-instance inventory and cache consistency lab'
+
+if (providers.environmentVariable('FLASHSALE_BUILD_DIR').isPresent()) {
+    layout.buildDirectory = file(providers.environmentVariable('FLASHSALE_BUILD_DIR').get())
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets {
+    integrationTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies:4.1.1')
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-flyway'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.postgresql:postgresql'
+    implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.4.0'
+    implementation 'io.github.resilience4j:resilience4j-bulkhead:2.4.0'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Retain the requested JUnit 5 line instead of Boot 4's JUnit 6 default.
+    testImplementation enforcedPlatform('org.junit:junit-bom:5.14.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.awaitility:awaitility'
+    integrationTestImplementation enforcedPlatform('org.testcontainers:testcontainers-bom:2.0.5')
+    integrationTestImplementation 'org.testcontainers:testcontainers-postgresql'
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters', '-Xlint:deprecation']
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    maxParallelForks = 1
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat = 'full'
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs real PostgreSQL acceptance tests (Docker required by default).'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter test
+    // A database run must actually execute, not reuse a previous environment's result.
+    outputs.upToDateWhen { false }
+}
+
+tasks.named('check') {
+    dependsOn integrationTest
+}
+
+tasks.named('wrapper') {
+    gradleVersion = '9.8.0'
+    distributionType = Wrapper.DistributionType.BIN
+    distributionSha256Sum = 'bafd5ce9cfaea0fbccfdc8439a1ac42fbd4cd9c89dc9a988228d8a2639a58e6c'
+}

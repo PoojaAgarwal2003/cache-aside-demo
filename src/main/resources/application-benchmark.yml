@@ -1,0 +1,4 @@
+lab:
+  demo-enabled: true
+  read-delay-ms: 0
+  purchase-delay-ms: 0
