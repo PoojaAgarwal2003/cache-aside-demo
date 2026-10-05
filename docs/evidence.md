@@ -76,6 +76,21 @@ This record is written before push and does not invent a later CI result.
 Milestone-1 Docker acceptance already passed in
 [run 37196941718](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37196941718).
 
+**Post-push CI finding:** the first milestone-2 container run
+([37276867829](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37276867829))
+failed the Redis restart test: Docker reassigned its random published port when
+the fixture stopped/started the container, but the app retained the original
+endpoint. The native backend had retained its port and did not expose this test
+harness defect. The local correction keeps the container running and stops/starts
+the actual Redis process inside it, retaining the endpoint. The outage test also
+checks Redis `run_id` changes, proving a real process restart rather than merely
+pausing traffic. The corrected sources compile, and all **19 targeted Redis
+admission/process-crash tests pass** against native PostgreSQL plus real Redis in
+WSL; this does not verify the changed Docker-only startup path.
+The owner approved a fifth corrective commit on 2026-10-05. The original
+`milestone-2` tag is retained; `milestone-2-corrected` identifies the correction.
+This record precedes its container CI run; consult GitHub Actions for the result.
+
 Product caching, listener/recovery breakers, rate limiting, persisted experiments,
 dashboard/browser tests, full Compose walkthrough and benchmarks retain their
 later milestone gates. These are small correctness checks, not capacity or SLA

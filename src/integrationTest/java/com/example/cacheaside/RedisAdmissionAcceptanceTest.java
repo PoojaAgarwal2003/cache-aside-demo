@@ -374,6 +374,8 @@ class RedisAdmissionAcceptanceTest {
     @Test
     void actualRedisShutdownReportsUnavailableAndFailedCompensationRemainsDurable() throws Exception {
         long id = fixture(5);
+        String originalRunId = redisRunId();
+        assertThat(originalRunId).isNotBlank();
         probe.reserved = (request, reservation) -> {
             try {
                 server.stopServer();
@@ -402,11 +404,18 @@ class RedisAdmissionAcceptanceTest {
         }
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
                 assertThat(status(id).get("redis").get("availability").asString()).isEqualTo("AVAILABLE"));
+        assertThat(redisRunId()).isNotBlank().isNotEqualTo(originalRunId);
         assertThat(reconcile(id).statusCode()).isEqualTo(200);
         assertThat(status(id).get("unresolvedReservations").asInt()).isZero();
         assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(4);
         assertThat(buy(id, "outage-" + id, "key", 2).statusCode()).isEqualTo(200);
         assertThat(app.stock(id) + app.sold(id)).isEqualTo(5);
+    }
+
+    private String redisRunId() {
+        try (var connection = redis.getConnectionFactory().getConnection()) {
+            return connection.serverCommands().info("server").getProperty("run_id");
+        }
     }
 
     private long fixture(int stock) throws Exception {

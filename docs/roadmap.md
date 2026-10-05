@@ -1,6 +1,6 @@
 # Milestones and commit plan
 
-Six milestones, **21 commits total** (4 + 4 + 4 + 3 + 3 + 3). Each commit is a
+Six milestones, **22 commits total** (4 + 5 + 4 + 3 + 3 + 3). Each commit is a
 coherent implementation step, not a cosmetic split. Counts below include the
 initial repository setup. Complete and verify one milestone, push its commits,
 then **pause until the owner explicitly says to proceed**. Do not start the next
@@ -13,16 +13,17 @@ two milestones to keep the backend runner and dashboard independently reviewable
 | Milestone | Commits | Scope and delivery gate | State |
 |---|---:|---|---|
 | 1. Authoritative vertical slice | 4 | Reproducible boot, migrations, product API, atomic SQL purchase, persisted idempotency and real PostgreSQL evidence | Delivered; native and Docker CI verified |
-| 2. Inventory strategies | 4 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Implemented; PostgreSQL/Redis acceptance verified |
+| 2. Inventory strategies | 5 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Implemented; fifth corrective commit authorized for Docker fixture |
 | 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Not started |
 | 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Not started |
 | 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Not started |
 | 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Not started |
 
-**Current handoff:** milestones 1 and 2 are implemented, four commits each.
-[Evidence](evidence.md) records real PostgreSQL/Redis and forced-process crash
-checks, with the container-backed path covered by CI. After publishing the
-four milestone-2 commits, pause. Milestone 3 requires the owner's next instruction.
+**Current handoff:** the owner authorized a fifth corrective milestone-2 commit
+and then milestone 3 on 2026-10-05. The original `milestone-2` tag stays immutable;
+`milestone-2-corrected` identifies the corrective delivery. Verify its container
+CI before continuing. [Evidence](evidence.md) records the initial CI defect and
+native acceptance results. Pause again after publishing milestone 3.
 
 ## Milestone 1: authoritative vertical slice
 
@@ -50,6 +51,8 @@ four milestone-2 commits, pause. Milestone 3 requires the owner's next instructi
    compensation and honest unavailable/rejection outcomes.
 4. Crash/unknown-commit reconciliation, expired-counter regressions and
    comparisons with the atomic baseline. Include healthy pessimistic 50/10.
+5. Preserve the Docker endpoint across real Redis process restarts; verify a
+   changed Redis process run ID. Owner-approved corrective commit, no rewrite.
 
 ## Milestone 3: cache consistency and resilience
 

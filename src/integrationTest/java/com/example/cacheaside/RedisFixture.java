@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,8 +32,11 @@ final class RedisFixture implements AutoCloseable {
         binary = System.getenv("FLASHSALE_TEST_REDIS_BINARY");
         if (distro == null && binary == null) {
             log = null;
-            container = new GenericContainer<>(DockerImageName.parse(IMAGE)).withExposedPorts(6379);
+            // Preserve Docker's mapped endpoint while restarting the actual Redis process.
+            container = new GenericContainer<>(DockerImageName.parse(IMAGE)).withExposedPorts(6379)
+                    .withCommand("sleep", "infinity").waitingFor(Wait.forSuccessfulCommand("true"));
             container.start();
+            startContainerServer();
             host = container.getHost();
             port = container.getMappedPort(6379);
         } else {
@@ -60,7 +64,8 @@ final class RedisFixture implements AutoCloseable {
 
     void stopServer() throws Exception {
         if (container != null) {
-            container.getDockerClient().stopContainerCmd(container.getContainerId()).withTimeout(1).exec();
+            var result = container.execInContainer("redis-cli", "shutdown", "nosave");
+            assertThat(result.getExitCode()).as(result.getStderr()).isZero();
         } else if (process != null && process.isAlive()) {
             var command = nativeCommand(binary.replace("redis-server", "redis-cli"));
             command.addAll(List.of("-h", "127.0.0.1", "-p", Integer.toString(port), "shutdown", "nosave"));
@@ -74,11 +79,17 @@ final class RedisFixture implements AutoCloseable {
 
     void restartServer() throws Exception {
         if (container != null) {
-            container.getDockerClient().startContainerCmd(container.getContainerId()).exec();
+            startContainerServer();
         } else {
             startNative();
         }
         awaitReady();
+    }
+
+    private void startContainerServer() throws IOException, InterruptedException {
+        var result = container.execInContainer("redis-server", "--bind", "0.0.0.0",
+                "--save", "", "--appendonly", "no", "--daemonize", "yes");
+        assertThat(result.getExitCode()).as(result.getStderr()).isZero();
     }
 
     private void startNative() throws IOException {
