@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StartupAcceptanceTest {
     @Test
@@ -39,7 +40,7 @@ class StartupAcceptanceTest {
                 var jdbc = first.getBean(JdbcTemplate.class);
                 assertThat(jdbc.queryForObject("SELECT count(*) FROM products", Integer.class)).isEqualTo(1);
                 assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success AND type='SQL'",
-                        Integer.class)).isEqualTo(3);
+                        Integer.class)).isEqualTo(4);
                 var sale = http.send(purchase(first, id), HttpResponse.BodyHandlers.ofString());
                 assertThat(sale.statusCode()).isEqualTo(200);
                 purchaseId = json.readTree(sale.body()).get("purchaseId").asString();
@@ -63,6 +64,11 @@ class StartupAcceptanceTest {
             try (var readOnly = SpringApplication.run(CacheAsideApplication.class, readOnlyArgs)) {
                 assertThat(http.send(purchase(readOnly, id), HttpResponse.BodyHandlers.ofString()).statusCode())
                         .isEqualTo(403);
+                assertThatThrownBy(() -> readOnly.getBean(com.example.cacheaside.purchase.PurchaseService.class)
+                        .purchase(com.example.cacheaside.purchase.PurchaseRequest.parse(
+                                id, null, "NONE", "read-only", "unsafe"), java.util.UUID.randomUUID()))
+                        .isInstanceOf(com.example.cacheaside.web.ApiException.class)
+                        .hasMessageContaining("deliberately unsafe");
                 var read = HttpRequest.newBuilder(uri(readOnly, "/products/" + id))
                         .timeout(Duration.ofSeconds(10)).GET().build();
                 assertThat(http.send(read, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);

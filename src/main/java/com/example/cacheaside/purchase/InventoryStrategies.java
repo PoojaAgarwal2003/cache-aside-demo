@@ -26,10 +26,27 @@ public class InventoryStrategies {
 
     Decision decide(PurchaseRequest request, int attempt) {
         return switch (PurchaseStrategy.resolve(request.strategy())) {
+            case NONE -> unsafe(request, attempt);
             case ATOMIC_SQL -> atomic(request);
             case PESSIMISTIC -> checked(request, attempt, true);
             case OPTIMISTIC -> checked(request, attempt, false);
         };
+    }
+
+    private Decision unsafe(PurchaseRequest request, int attempt) {
+        Stock stock = read(request.productId(), false);
+        if (stock == null) {
+            return Decision.rejected(PurchaseDecision.Outcome.NOT_FOUND);
+        }
+        if (stock.quantity() < request.quantity()) {
+            return Decision.rejected(PurchaseDecision.Outcome.OUT_OF_STOCK);
+        }
+        probe.afterRead(request, stock.quantity(), stock.version(), attempt);
+        ProductService.delay(properties.purchaseDelayMs());
+        var updated = jdbc.query("UPDATE products SET stock=stock-? WHERE id=? RETURNING stock,version",
+                (row, index) -> new Stock(row.getInt(1), row.getLong(2)), request.quantity(), request.productId());
+        return updated.isEmpty() ? Decision.rejected(PurchaseDecision.Outcome.NOT_FOUND)
+                : Decision.sold(updated.get(0));
     }
 
     private Decision atomic(PurchaseRequest request) {

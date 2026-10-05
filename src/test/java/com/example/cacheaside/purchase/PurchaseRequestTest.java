@@ -38,7 +38,7 @@ class PurchaseRequestTest {
                     .isInstanceOf(ApiException.class);
         }
 
-        assertThatThrownBy(() -> PurchaseRequest.parse(1, null, "NONE", null, "key"))
+        assertThatThrownBy(() -> PurchaseRequest.parse(1, null, "MAGIC", null, "key"))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> PurchaseRequest.parse(0, null, null, null, "key"))
                 .isInstanceOf(ApiException.class);

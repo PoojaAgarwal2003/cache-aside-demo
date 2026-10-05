@@ -17,10 +17,13 @@ public class PurchaseService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transaction;
     private final InventoryStrategies strategies;
+    private final PurchaseFixturePolicy fixtures;
 
-    public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies) {
+    public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies,
+                           PurchaseFixturePolicy fixtures) {
         this.jdbc = jdbc;
         this.strategies = strategies;
+        this.fixtures = fixtures;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -28,6 +31,7 @@ public class PurchaseService {
     }
 
     public PurchaseDecision purchase(PurchaseRequest request, UUID requestId) {
+        fixtures.prepare(request);
         // execute() returns only after commit. Unknown commit failures escape as
         // retryable errors; a retry resolves the persisted key, never refunds.
         for (int attempt = 1; attempt <= 20; attempt++) {
@@ -59,6 +63,7 @@ public class PurchaseService {
             return replay(request);
         }
 
+        fixtures.check(request);
         var decision = strategies.decide(request, attempt);
         if (decision.outcome() == PurchaseDecision.Outcome.GAVE_UP && attempt < 20) {
             throw new OptimisticRetry();

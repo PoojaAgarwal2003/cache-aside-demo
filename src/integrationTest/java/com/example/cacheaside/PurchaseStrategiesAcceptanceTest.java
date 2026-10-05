@@ -10,11 +10,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -57,6 +60,57 @@ class PurchaseStrategiesAcceptanceTest {
         assertThat(app.sold(id)).isEqualTo(10);
         assertThat(app.stock(id)).isZero();
         assertUniqueSales(id, 10);
+    }
+
+    @RepeatedTest(3)
+    void barrierControlledUnsafeBuyersOversellWithoutLosingLedgerQuantities() throws Exception {
+        long id = app.fixture(2);
+        var checked = new CyclicBarrier(2);
+        probe.hook = (request, stock, version, attempt) -> {
+            assertThat(stock).isEqualTo(2);
+            try {
+                checked.await(5, TimeUnit.SECONDS);
+            } catch (Exception failure) {
+                throw new IllegalStateException("Both unsafe buyers must pass the unlocked check", failure);
+            }
+        };
+        var responses = buyers(id, "NONE", 2, 2, false);
+        assertThat(responses).allSatisfy(response -> {
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(body(response).get("meaning").asString()).contains("UNSAFE");
+        });
+        assertThat(app.sold(id)).isEqualTo(4);
+        assertThat(app.stock(id)).isEqualTo(-2);
+        assertThat(app.stock(id) + app.sold(id)).isEqualTo(2);
+        assertUniqueSales(id, 2);
+    }
+
+    @Test
+    void unsafeAndProtectedFixturesCannotMixAndKeyConflictStillTakesPrecedence() throws Exception {
+        long unsafe = app.fixture(10);
+        assertThat(app.purchase(unsafe, "NONE", "unsafe-" + unsafe, "key", 1).statusCode()).isEqualTo(200);
+        var conflict = app.purchase(unsafe, "ATOMIC_SQL", "unsafe-" + unsafe, "key", 1);
+        assertThat(body(conflict).get("code").asString()).isEqualTo("IDEMPOTENCY_CONFLICT");
+        var mixed = app.purchase(unsafe, "ATOMIC_SQL", "other-" + unsafe, "key", 1);
+        assertThat(mixed.statusCode()).isEqualTo(409);
+        assertThat(body(mixed).get("code").asString()).isEqualTo("FIXTURE_MODE_CONFLICT");
+        assertThat(app.stock(unsafe)).isEqualTo(9);
+        long safe = app.fixture(10);
+        assertThat(app.purchase(safe, "PESSIMISTIC", "safe-" + safe, "key", 1).statusCode()).isEqualTo(200);
+        assertThat(body(app.purchase(safe, "NONE", "mixed-" + safe, "key", 1)).get("code").asString())
+                .isEqualTo("FIXTURE_MODE_CONFLICT");
+        assertThat(app.stock(safe)).isEqualTo(9);
+    }
+
+    @Test
+    void unsafeStillDeduplicatesSameKey() throws Exception {
+        long id = app.fixture(10);
+        var responses = buyers(id, "NONE", 20, 2, true);
+        assertThat(responses).allSatisfy(response -> assertThat(response.statusCode()).isEqualTo(200));
+        assertThat(responses.stream().map(response -> body(response).get("purchaseId").asString())
+                .distinct().count()).isEqualTo(1);
+        assertThat(app.stock(id)).isEqualTo(8);
+        assertUniqueSales(id, 1);
     }
 
     @ParameterizedTest

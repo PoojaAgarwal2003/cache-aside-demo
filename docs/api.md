@@ -53,6 +53,16 @@ in a fresh transaction (including a fresh idempotency claim), at most 20 attempt
 with 1-5ms jitter. Exhaustion persists 409 GAVE_UP, never OUT_OF_STOCK.
 Unknown strategies return 400 rather than silently substituting one.
 
+`NONE` is an **intentionally unsafe**, demo-only unlocked check followed by an
+unconditional decrement. Its response explicitly warns about overselling.
+The first purchase attempt permanently classifies a product as UNSAFE or
+PROTECTED, even if that attempt fails. Subsequent opposite-group attempts return
+409 `FIXTURE_MODE_CONFLICT`; create separate products for comparisons. This
+classification commits separately, before inventory work, without placing a
+row lock across the unsafe check. All protected strategies may share a protected
+product, but external SQL/admin edits are not covered by the conservation claim.
+Negative protected fixtures return 409 `INVALID_FIXTURE`.
+
 **Idempotency-Key is required:** 1-128 ASCII letters, digits, `.`, `_`, `:` or
 `-`. Keys are scoped to `X-Client-Id` (1-64 safe ASCII characters, default
 `local`), SHA-256 hashed in storage, never logged. The canonical fingerprint
