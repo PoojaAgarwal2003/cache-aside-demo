@@ -72,6 +72,14 @@ class StartupAcceptanceTest {
                 var read = HttpRequest.newBuilder(uri(readOnly, "/products/" + id))
                         .timeout(Duration.ofSeconds(10)).GET().build();
                 assertThat(http.send(read, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(200);
+                for (String path : new String[]{"/cache/status", "/cache/products/" + id}) {
+                    var debug = HttpRequest.newBuilder(uri(readOnly, path))
+                            .timeout(Duration.ofSeconds(10)).GET().build();
+                    assertThat(http.send(debug, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
+                }
+                var unprotected = HttpRequest.newBuilder(uri(readOnly, "/products/" + id + "?stampedeProtection=false"))
+                        .timeout(Duration.ofSeconds(10)).GET().build();
+                assertThat(http.send(unprotected, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
             }
         }
     }

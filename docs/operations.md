@@ -75,10 +75,14 @@ PostgreSQL server; its owner must manage its lifecycle explicitly.
 The WSL Redis override launches one **owned foreground Redis process** per
 fixture on a fresh loopback port, verifies readiness, and shuts down only that
 instance. Its matching `redis-cli` must be beside `redis-server`. Test Redis
-disables persistence and never uses the application's data volume.
+disables automatic persistence; the data-preserving restart case explicitly
+saves an RDB in its unique owned directory and removes it during cleanup.
+It never uses the application's data volume. Docker fixtures retain their
+container/mapped endpoint while restarting the actual Redis process inside it.
 Both WSL flags are required together; omitting them uses Testcontainers Redis.
 The scripts do not install WSL, Redis or PostgreSQL. A normal native app launch
-still needs its own Redis on `REDIS_PORT` for REDIS_ASSISTED; these short-lived
+still needs its own Redis on `REDIS_PORT` for caching, rate limiting and
+REDIS_ASSISTED; these short-lived
 test Redis instances are not application dependencies.
 
 For direct Gradle debugging, `FLASHSALE_TEST_JDBC_URL` may contain only
@@ -104,6 +108,34 @@ Run `integrationTest` for the controlled concurrency comparison and actual
 before/after-commit child-process termination tests. They traverse real HTTP,
 then check committed ledger quantities and DB stock, not just HTTP 200 counts.
 The runnable user-facing experiment harness and cancellation belong to milestone 4.
+
+Use distinct controlled client IDs when comparing inventory concurrency. Same
+client tests share a 10-request/10-second limit, including retries; 429 is a
+rate decision, not stock exhaustion. Old inventory-focused acceptance fixtures
+explicitly disable the limiter; limiter acceptance explicitly enables it.
+This separation is visible in test configuration, not a production shortcut.
+
+## Cache and recovery walkthrough
+
+Wait for `GET /cache/status` to report READY, create a product, then read it twice.
+The first response reports DATABASE/STORED; the second reports REDIS_CACHE and
+`X-Cache: HIT`. A repeated missing ID returns the negative-cache 404 envelope.
+PATCH the product and read again; post-commit invalidation prevents a completed
+invalidation from being overwritten by an older in-flight fill.
+
+For external-write detection, use ordinary SQL against your isolated fixture;
+the owned schema-filtered LISTEN connection invalidates, never repopulates.
+`DELETE /cache/products` rotates namespace for an explicit cold-read comparison.
+`?stampedeProtection=false` is demo-only and never disables fencing or bulkheads.
+
+To observe a real outage, stop **only this project's Redis service** with
+`docker compose stop redis`; do not stop PostgreSQL. Product reads fall back,
+limiter headers say BYPASSED without quota, and REDIS_ASSISTED stays explicitly
+unavailable rather than changing strategy. Start it with `docker compose start
+redis`. Observe separate breaker states and BYPASS/RECOVERING/READY: recovery
+requires healthy LISTEN and product-cache health probes, followed by a new epoch.
+Admission remains a different contract and may require drained reconciliation.
+Do not treat Redis persistence or a CLOSED breaker as proof of cache freshness.
 
 ## Linux/macOS
 
@@ -134,6 +166,13 @@ are checked in CI. Windows execution does not depend on these files.
 | Purchase lock / statement / transaction | 2 / 5 / 8 seconds | Bounded waits; retry purchases with same key |
 | Optimistic attempts / retry jitter | 20 / 1-5 ms | Fresh transactions; exhaustion is GAVE_UP, not OUT_OF_STOCK |
 | Redis command / connect timeout | 500 / 500 ms | Admission fails explicitly; no strategy fallback |
+| `lab.cache.database-permits` / `database-wait-ms` | 8 / 250 ms | 1-16 readers; 0-1000ms acquisition, then DATABASE_OVERLOADED |
+| `lab.cache.waiter-ms` / `poll-ms` | 3000 / 50 ms | 50-3000 / 10-100ms; bounded uncached fallback |
+| Product query transaction | 6 seconds | Read-only; includes synthetic delay; statement deadline still 5s |
+| Positive / negative cache TTL | 300-360 / 30 seconds | Fixed expiry, no sliding on hits |
+| Generation / lease / maximum publication age | 600 / 5 / 8 seconds | Random token fencing, no metadata sentinel reuse |
+| Redis breakers | 10 calls, minimum 5, 50% failures | Independent domains; open 10s, three HALF_OPEN trials |
+| `lab.rate-limit.enabled` / `limit` / `window-ms` | true / 10 / 10000 | Limit 1-1000, window 1000-60000ms; Redis TIME |
 | Redis admission workers / permit wait | 4 / 2 seconds | Bounds nested journal/inventory connections |
 | Counter / reservation TTL | 60 / 120 seconds | Fixed expiry; release never recreates an expired counter |
 | Automatic cleanup loop / manual reconciliation loop | 3 / 15 seconds | Monotonic loop bounds plus the final bounded resolver transaction |
@@ -144,8 +183,13 @@ are checked in CI. Windows execution does not depend on these files.
 | Client ID / idempotency key | 64 / 128 chars | Safe ASCII, scoped identity, no authentication |
 | Application / cache-flow logs | 50 / 25 MB rotation caps | 7-day history; current active files are additional |
 
-Current runtime logs are `logs/app.log` and `logs/cache-flow.log`; the latter has
-no fake product-cache events in milestone 2. Both are ignored by Git. Test reports are
+Spring settings above can be supplied as command-line properties for direct
+launches, or environment variables such as `LAB_RATELIMIT_LIMIT` and
+`LAB_CACHE_DATABASEPERMITS`; the scripts' `.env` allowlist is unchanged.
+
+Current runtime logs are `logs/app.log` and `logs/cache-flow.log`; the latter
+records actual read sources/publication outcomes and readiness transitions.
+Both are ignored by Git. Test reports are
 under the chosen build directory's `reports/tests` and `test-results`.
 
 For raw database verification:

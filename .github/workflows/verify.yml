@@ -24,5 +24,5 @@ jobs:
           echo '238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
           for file in scripts/*.sh; do bash -n "$file"; done
           docker compose config --quiet
-      - name: Real PostgreSQL and Redis acceptance, process-crash recovery and build
+      - name: Real PostgreSQL and Redis acceptance, cache recovery, rate limits and process crashes
         run: ./scripts/verify.sh

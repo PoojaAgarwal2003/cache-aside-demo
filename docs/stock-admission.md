@@ -82,6 +82,8 @@ application-local guard. Concurrent outside writes remain outside run guarantees
 Crashes, missed compensation, external edits and key expiry can all cause drift
 or false rejection. Inspect shows database and counter values separately; it is
 not a transactionally consistent global snapshot. No automatic background scan,
-KEYS, FLUSHDB, blind INCRBY, or refill on each purchase is used. The product-read
-cache, independent circuit breakers and broader recovery coordination remain
-milestone 3, not features of this stock gate.
+KEYS, FLUSHDB, blind INCRBY, or refill on each purchase is used. Milestone 3 adds
+an independent `stock-admission` breaker through the shared Redis gateway;
+its recovery never implies product-cache readiness. Product-read caching,
+listener/epoch recovery and limiter policy are separate contracts documented in
+[product-cache.md](product-cache.md), not stock-authority guarantees.

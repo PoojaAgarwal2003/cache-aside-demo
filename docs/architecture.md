@@ -1,23 +1,31 @@
 # Architecture: delivered slice and future boundaries
 
 **One host application instance, one dedicated PostgreSQL database, one Redis
-service.** Milestone 2 implements five purchase strategies, one durable ledger/
-idempotency boundary and advisory Redis admission. Product reads still query
-PostgreSQL directly; the cache/listener/breakers arrive in milestone 3.
+service.** Milestone 3 implements five purchase strategies, one durable ledger/
+idempotency boundary and advisory Redis admission, plus typed eventual caching,
+coordinated listener recovery and separate Redis cache/admission/limiter breakers.
 
 ```mermaid
 flowchart LR
     Client[Local HTTP client] --> Boundary[Loopback / origin / size / demo gate]
-    Boundary --> Products[Product API: JPA]
-    Boundary --> Purchase[Purchase API: JdbcTemplate]
+    Boundary --> Limit[Redis-time request limiter]
+    Limit --> Products[Product API: typed cache plus bounded DB reads]
+    Limit --> Purchase[Purchase API: JdbcTemplate]
+    Products --> Cache[Epoch and generation-fenced cache]
     Products --> DB[(PostgreSQL)]
     Purchase --> DB
     Purchase --> Admission[Redis admission plus durable journal]
-    Admission --> Redis[(Redis: advisory counter)]
+    Admission --> Redis[(Redis: independent namespaces and breakers)]
+    Limit --> Redis
+    Cache --> Redis
     Admission --> DB
     DB --> Version[BEFORE UPDATE version trigger]
     DB --> Notify[Committed NOTIFY hint]
-    Notify -. listener in milestone 3 .-> Cache[Future product cache]
+    Notify --> Listener[Owned schema-filtered LISTEN]
+    Listener --> Invalidate[Invalidate only]
+    Products --> Invalidate
+    Purchase --> Invalidate
+    Invalidate --> Cache
 ```
 
 ## Product path
@@ -26,16 +34,26 @@ flowchart LR
 sequenceDiagram
     participant Client
     participant API
+    participant Redis
     participant PostgreSQL
     Client->>API: GET /products/id
-    API->>PostgreSQL: Authoritative product query
-    PostgreSQL-->>API: DTO data or absent
-    API-->>Client: DATABASE envelope, 200 or 404
+    API->>Redis: Typed lookup in ready epoch
+    alt Cache hit
+        Redis-->>API: PRESENT or ABSENT DTO
+        API-->>Client: REDIS_CACHE envelope, 200 or 404
+    else Miss
+        API->>Redis: Owner lease, recheck, capture generation
+        API->>PostgreSQL: Bulkhead-bounded authoritative query
+        PostgreSQL-->>API: DTO or absent
+        API->>Redis: Lua compares generation/owner before fixed-TTL fill
+        API-->>Client: DATABASE envelope with actual publication outcome
+    end
     Client->>API: PATCH supplied fields
     API->>PostgreSQL: JPA optimistic UPDATE (old version predicate)
     PostgreSQL->>PostgreSQL: Trigger assigns OLD.version + 1
     API->>PostgreSQL: Flush / refresh / commit
     PostgreSQL-->>API: Actual version and timestamp
+    API->>Redis: After-commit generation change and data invalidation
     API-->>Client: Committed product DTO
 ```
 
@@ -117,14 +135,39 @@ distrust the advisory epoch. The bounded local fixture guard covers API admin
 transactions through commit; it is not multi-instance orchestration. See
 [stock-admission.md](stock-admission.md) for Lua states and drift limitations.
 
-## Later cache/recovery work (not implemented yet)
+## Cache and recovery boundary
 
-Milestone 3 will insert typed cache lookups before product queries, keep purchase
-decisions in PostgreSQL, invalidate after commit, and use a dedicated LISTEN
-connection plus generation/epoch fencing. Recovery must rotate the epoch and
-verify listener/Redis health **before** enabling cache readiness. A CLOSED
-breaker alone will not imply safe cache data. These are roadmap requirements,
-not current capabilities.
+Only read paths fill. API mutations and newly committed SOLD results register a
+shared after-commit invalidation; rollback does not invalidate. External committed
+SQL changes produce schema-scoped invalidation hints over the owned JDBC listener.
+It is a separate bounded connection, not a permanent Hikari checkout.
+
+```mermaid
+stateDiagram-v2
+    [*] --> BYPASS
+    BYPASS --> RECOVERING: LISTEN registered and health probing
+    RECOVERING --> READY: product breaker CLOSED and fresh epoch published
+    READY --> BYPASS: known listener or Redis failure
+    RECOVERING --> BYPASS: failed probe or disconnect
+    READY --> READY: explicit namespace rotation
+```
+
+Product-cache HALF_OPEN accepts only health probes. The listener loop coordinates
+recovery serially; no breaker callback calls Redis or flushes data. Limiter and
+admission success cannot publish cache readiness. Old namespaces expire naturally,
+including after a Redis restart that retains old data. A CLOSED breaker alone is
+not freshness.
+
+Healthy cold readers acquire/recheck a compare-token lease. Other callers wait
+at most three seconds, then fall back without publishing. All DB product reads
+share the eight-permit bulkhead; overload is explicit 503 even during limiter
+fail-open. Leases do not guarantee one query under arbitrary delays/failures.
+Generation and ownership fences instead prevent stale publication.
+
+The independent limiter uses one Redis-time sorted-set Lua decision, retains
+accepted timestamps in `(now-window, now]`, and explicitly fails open without
+inventing quota. See [product-cache.md](product-cache.md) for exact contracts and
+[limitations.md](limitations.md) for eventual consistency and detection gaps.
 
 ## Feature-to-code map
 
@@ -140,11 +183,17 @@ not current capabilities.
 | Advisory Redis gate, journal and reconciliation | `purchase/StockAdmissionService.java`, `RedisStockClient.java`, `redis/*.lua`, migration V5 |
 | Canonical identity/fingerprint | `purchase/PurchaseRequest.java` |
 | Request safety, tracing and error mapping | `web/` |
+| Typed cache, generations, owner leases and bulkhead | `cache/ProductCacheClient.java`, `ProductReadService.java`, `redis/cache-*.lua` |
+| Post-commit and external-write invalidation/recovery | `cache/CacheInvalidation.java`, `DbChangeListener.java`, `CacheCoordinator.java`, migration V6 |
+| Independent Redis failure domains | `cache/RedisAccess.java` |
+| Redis-time quota and observable HTTP policy | `ratelimit/`, `redis/rate-window.lua` |
 | Database/HTTP concurrency and rollback evidence | `MilestoneOneAcceptanceTest.java` |
 | Protected/unsafe race evidence | `PurchaseStrategiesAcceptanceTest.java` |
 | Lua, actual Redis outage, epoch and compensation evidence | `RedisAdmissionAcceptanceTest.java` |
 | Forced Java process death before/after commit | `PurchaseCrashAcceptanceTest.java`, test-only `PurchaseCrashChild.java` |
 | Upgrade/restart and default read-only mode | `StartupAcceptanceTest.java` |
+| Fenced fill, listener and actual preserved-data restart | `ProductCacheClientAcceptanceTest.java`, `CacheInvalidationAcceptanceTest.java`, `CacheResilienceAcceptanceTest.java` |
+| Atomic quota, boundaries, headers and fail-open overload | `RateLimitAcceptanceTest.java` |
 | PowerShell-first operation | `scripts/` |
 
 Java package paths above are relative to

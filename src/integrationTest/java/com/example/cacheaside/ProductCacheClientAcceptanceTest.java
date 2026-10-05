@@ -102,6 +102,9 @@ class ProductCacheClientAcceptanceTest {
         }
         redis.opsForValue().set(cache.key(epoch, 1, "data"), "{\"schemaVersion\":1,\"kind\":\"ABSENT\",\"data\":null}");
         assertThat(cache.lookup(epoch, 1).kind()).isEqualTo(ProductCacheClient.LookupKind.CORRUPT);
+        redis.opsForValue().set(cache.key(epoch, 1, "data"),
+                "{\"schemaVersion\":1,\"kind\":\"ABSENT\",\"data\":null}", Duration.ofSeconds(60));
+        assertThat(cache.lookup(epoch, 1).kind()).isEqualTo(ProductCacheClient.LookupKind.CORRUPT);
         redis.opsForHash().put(cache.key(epoch, 1, "data"), "wrong", "type");
         assertThat(cache.lookup(epoch, 1).kind()).isEqualTo(ProductCacheClient.LookupKind.CORRUPT);
         cache.invalidate(epoch, 1);

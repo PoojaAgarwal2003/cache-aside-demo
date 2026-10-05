@@ -125,7 +125,8 @@ public class ProductCacheClient {
             raw = snapshot.get("value").asString();
             long ttl = snapshot.get("ttl").asLong();
             CacheEntry entry = raw.length() <= 32_768 ? json.readValue(raw, CacheEntry.class) : null;
-            if (entry == null || !entry.validFor(id) || ttl <= 0 || ttl > 360_000) {
+            if (entry == null || !entry.validFor(id) || ttl <= 0
+                    || ttl > (entry.kind() == CacheEntry.Kind.ABSENT ? 30_000 : 360_000)) {
                 removeCorrupt(epoch, id, raw);
                 return corrupt(id, "Invalid schema, product fields or fixed expiry.");
             }

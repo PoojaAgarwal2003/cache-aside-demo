@@ -50,7 +50,8 @@ final class PostgresFixture implements AutoCloseable {
                 "--spring.flyway.default-schema=" + schema,
                 "--spring.flyway.schemas=" + schema,
                 "--spring.jpa.properties.hibernate.default_schema=" + schema,
-                "--lab.demo-enabled=true", "--lab.read-delay-ms=0", "--lab.purchase-delay-ms=0"
+                "--lab.demo-enabled=true", "--lab.read-delay-ms=0", "--lab.purchase-delay-ms=0",
+                "--lab.rate-limit.enabled=false"
         };
     }
 

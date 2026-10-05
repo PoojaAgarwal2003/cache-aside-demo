@@ -1,5 +1,84 @@
 # Acceptance evidence
 
+## Milestone 3: cache consistency and resilience
+
+Recorded **2026-10-05** before the milestone-3 push, with the same Windows x64,
+Temurin 17.0.20.1+1, PostgreSQL 16.15 and real Redis 7.4.11-in-WSL stack below.
+The **Windows PowerShell 5.1** full `verify.ps1` entry point ran `check bootJar`.
+**86 tests passed: zero failures, errors or skips.** Native execution is not
+claimed as local Docker evidence.
+
+| Suite | Tests | Evidence |
+|---|---:|---|
+| Unit suites | 10 | Existing input/identity bounds; limiter settings; Lua resource classloader ownership |
+| Retained M1/M2 acceptance | 50 | Product/startup, all strategies, admission and actual child-process crash regressions |
+| `ProductCacheClientAcceptanceTest` | 6 | Typed positive/negative TTLs, corruption, generation expiry, old epoch and compare-owner fencing |
+| `CacheInvalidationAcceptanceTest` | 7 | HTTP caching, CRUD/SOLD invalidation, paused positive/negative fills, rollback, schema isolation and actual listener backend termination |
+| `CacheResilienceAcceptanceTest` | 7 | Cold stampede on/off, bounded waiter, expired owner, database overload, real data-preserving Redis restart and lost fill response |
+| `RateLimitAcceptanceTest` | 6 | Atomic concurrent quota, exact time boundary, natural expiry, identity validation, independent breaker and real-outage fail-open overload |
+
+### Controlled observations
+
+| Scenario | Observed assertion |
+|---|---|
+| Healthy cold and warm reads | DATABASE/STORED followed by REDIS_CACHE; missing product is cached as typed ABSENT and still returns 404 |
+| Positive and absent TTL | Positive 300-360s at fill, absent 30s; cache hits never extend TTL; an overlong negative TTL is corrupt |
+| Old positive/negative loader paused after DB read | Completed update/create invalidation makes old publication REJECTED_GENERATION |
+| Actual listener backend terminated, external update during disconnection | BYPASS before recovery; reconnected listener rotates epoch; resumed old fill cannot populate the new namespace |
+| Healthy shared cold load with leases | Controlled overlap shares the owner fill; protection-disabled case demonstrates four actual DB loads |
+| Owner held beyond waiter deadline | Waiter performs DATABASE_FALLBACK/NOT_ATTEMPTED without a fill |
+| Expired owner and successor lease | Old owner cannot publish or delete successor ownership |
+| Eight DB loads held inside read bulkhead | Ninth read returns DATABASE_OVERLOADED; permits are restored after release |
+| Redis stopped with explicit RDB save, DB changed, Redis restarted | Old cache bytes survive restart but the recovered epoch prevents their reuse |
+| Redis fill completes, response loss injected immediately after Lua | FAILED does not pretend no write occurred; cache bypasses and recovers under a fresh epoch |
+| 15 concurrent same-client HTTP requests within verified 10s | 10 accepted, five 429; another client proceeds; rejected purchase creates no sale |
+| Exact lower/upper boundary | Production Lua with test-only clock-expression substitution removes lower-bound/future entries and retains `(now-window, now]` |
+| Ten accepted limiter entries | State naturally expires, denied requests do not extend TTL, next request receives remaining quota 9 |
+| Wrong-type limiter key opens only rate-limit breaker | BYPASSED without quota; product cache remains READY and other breakers CLOSED |
+| Actual Redis process stopped with eight held fallback reads | Limiter explicitly fails open; ninth request remains 503 DATABASE_OVERLOADED |
+
+No public fault/clock endpoint was added. Test-only probe implementations and
+crash child classes are absent from the executable JAR. Existing inventory
+concurrency fixtures explicitly disable the limiter; limiter tests explicitly
+enable it so quota does not silently change stock experiments.
+
+The full combined suite caught a lazy Lua resource owning the first request's
+Tomcat classloader, which had already stopped during later app lifecycles.
+Scripts now explicitly use the application classloader, with a focused regression.
+Duplicate test-property overrides were made replace-not-append; native WSL
+startup receives a bounded cold-boot deadline. None of these failures was marked
+skipped or hidden with a success fallback.
+
+### Packaged application
+
+The **0.3.0 executable JAR** was launched and stopped through PowerShell 5.1
+scripts on an isolated schema and owned Redis instance. It reported milestone 3,
+READY, independent breaker status and the actual zero artificial delays.
+Cold/warm/negative reads, committed PATCH invalidation, typed TTL inspection and
+namespace rotation passed over HTTP. A measured **186ms** same-client sequence
+produced **10 accepted / five 429**; this is a small correctness observation,
+not a throughput benchmark.
+
+Each of the five purchase strategies on its own stock-3 product committed a
+quantity-2 sale and same-key replay. Both HTTP and SQL showed stock 1/version 1,
+sold quantity 2, and no duplicate decrement. Owned runtime processes and the
+isolated walkthrough schema are cleaned up; normal lab data is preserved.
+
+### Container verification boundary
+
+The fifth milestone-2 correction **passed real-container CI** in
+[run 37337273418](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37337273418),
+at `686cfc5da5065ab5fe8a04ce12662683f9554787`, tagged `milestone-2-corrected`.
+The original `milestone-2` tag was not moved.
+
+This record precedes milestone-3 publication; its authoritative full PostgreSQL/
+Redis container result is the workflow for the `milestone-3` commit in
+[GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions).
+No local Docker/Compose execution, browser test, benchmark or screenshot is
+claimed. Persisted runs, visual delivery and repeatability retain milestones 4-6.
+
+---
+
 ## Milestone 2: inventory strategies
 
 Recorded **2026-10-05**, before the milestone-2 push. Windows x64, Temurin
@@ -89,11 +168,13 @@ admission/process-crash tests pass** against native PostgreSQL plus real Redis i
 WSL; this does not verify the changed Docker-only startup path.
 The owner approved a fifth corrective commit on 2026-10-05. The original
 `milestone-2` tag is retained; `milestone-2-corrected` identifies the correction.
-This record precedes its container CI run; consult GitHub Actions for the result.
+**Subsequently verified:** its real-container CI passed in
+[run 37337273418](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37337273418).
 
-Product caching, listener/recovery breakers, rate limiting, persisted experiments,
-dashboard/browser tests, full Compose walkthrough and benchmarks retain their
-later milestone gates. These are small correctness checks, not capacity or SLA
+At the milestone-2 handoff, product caching, listener/recovery breakers, rate
+limiting, persisted experiments, dashboard/browser tests, full Compose walkthrough
+and benchmarks retained later gates. The cache/limiter slice is now covered in
+the milestone-3 record above. These are small correctness checks, not capacity or SLA
 measurements. The ledger/reservation journal survives process crashes; persisted
 experiment-run reporting is not implemented until milestone 4.
 

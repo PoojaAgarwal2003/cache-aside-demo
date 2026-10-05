@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.example'
-version = '0.2.0'
+version = '0.3.0'
 description = 'FlashSale Lab - a single-instance inventory and cache consistency lab'
 
 if (providers.environmentVariable('FLASHSALE_BUILD_DIR').isPresent()) {

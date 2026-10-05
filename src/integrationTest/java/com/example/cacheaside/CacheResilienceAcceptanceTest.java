@@ -136,7 +136,7 @@ class CacheResilienceAcceptanceTest {
             var waiter = get(id, true);
             assertThat(Duration.ofNanos(System.nanoTime() - start).toMillis()).isBetween(2_800L, 8_000L);
             assertThat(body(waiter).get("source").asString()).isEqualTo("DATABASE_FALLBACK");
-            assertThat(body(waiter).get("cacheWriteOutcome").asString()).isEqualTo("SKIPPED_UNAVAILABLE");
+            assertThat(body(waiter).get("cacheWriteOutcome").asString()).isEqualTo("NOT_ATTEMPTED");
             assertThat(cache.lookup(coordinator.status().epoch(), id).kind()).isEqualTo(ProductCacheClient.LookupKind.MISS);
             release.countDown();
             assertThat(owner.get(10, TimeUnit.SECONDS).statusCode()).isEqualTo(200);

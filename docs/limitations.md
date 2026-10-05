@@ -2,9 +2,9 @@
 
 - This is a **single application-instance local educational lab**, not a
   production inventory service or distributed-system certification.
-- Milestone 2 implements all five inventory strategies and advisory Redis
-  admission. No product-read cache, limiter, circuit readiness, experiment runner
-  or dashboard is claimed yet. `/status` reports this honestly.
+- Milestone 3 implements all five strategies, advisory Redis admission, typed
+  product caching, listener recovery, bounded rebuilds, separate breakers and a
+  lab limiter. The experiment runner and dashboard remain later milestones.
 - No real payment is performed. Atomic stock/ledger commit and durable key
   deduplication do not imply exactly-once request execution or payment delivery.
 - `X-Client-Id` is a spoofable lab identity, not authentication. Keys have meaning
@@ -35,10 +35,26 @@
   [stock-admission.md](stock-admission.md).
 - The demo profile uses explicit synthetic read/purchase delays (1000/100 ms by
   default). These are not real PostgreSQL latency measurements.
-- LISTEN/NOTIFY triggers already emit after commit, but there is no application
-  listener yet. Future invalidation will be best-effort, not durable CDC. Future
-  cached reads will be eventual, not linearizable; TTL is not an exact
-  commit-to-freshness deadline.
+- The owned LISTEN connection invalidates only after committed notifications;
+  it is not durable CDC. Cached reads are eventual, not linearizable. Already
+  running requests can return old snapshots; fencing prevents an old fill from
+  surviving completed invalidation. TTL begins at fill, not at commit, and is
+  not an exact commit-to-freshness deadline.
+- Known listener/Redis failures bypass caching until coordinated health checks
+  rotate epoch. There is a detection interval before a failure is known.
+  Successful limiter/admission calls and CLOSED breakers alone cannot establish
+  cache freshness. Recovery does not physically delete old namespaces.
+- Redis leases limit healthy cold-load duplication, not arbitrary-failure
+  exactly-one execution. Slow owners can overlap successors; expired ownership
+  rejects publication. Waiters can use uncached fallback, with bounded capacity.
+- The limiter uses Redis time, so clock adjustments affect window semantics.
+  Entries outside `(now-window, now]` are removed atomically. Spoofable identities,
+  deliberate disable and outage fail-open make it a lab demonstration, not
+  public abuse protection. Redis quota state is not durably replicated; a
+  restart can reset quota. DB backpressure still applies.
+- Redis cannot distinguish never-created from already-expired data without
+  retained history; inspection reports `ABSENT_OR_EXPIRED`, not a fabricated
+  expiry event. All metrics are process-local counters, not durable run reports.
 - Routine stop preserves Compose volumes. Redis AOF `everysec` is configured,
   but persistence is not an unconditional guarantee or proof that cached data
   is trustworthy after reconnect.

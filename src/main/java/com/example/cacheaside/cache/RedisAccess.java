@@ -96,7 +96,7 @@ public class RedisAccess {
 
     public static DefaultRedisScript<String> script(String name) {
         var script = new DefaultRedisScript<String>();
-        script.setLocation(new ClassPathResource("redis/" + name + ".lua"));
+        script.setLocation(new ClassPathResource("redis/" + name + ".lua", RedisAccess.class.getClassLoader()));
         script.setResultType(String.class);
         return script;
     }

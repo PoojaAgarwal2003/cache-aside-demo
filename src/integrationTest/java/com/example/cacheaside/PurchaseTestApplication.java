@@ -33,7 +33,15 @@ final class PurchaseTestApplication implements AutoCloseable {
         database = new PostgresFixture();
         var arguments = new ArrayList<>(Arrays.asList(database.arguments()));
         arguments.add("--spring.profiles.active=test");
-        arguments.addAll(Arrays.asList(extraArguments));
+        for (String argument : extraArguments) {
+            int separator = argument.indexOf('=');
+            if (separator < 3 || !argument.startsWith("--")) {
+                throw new IllegalArgumentException("Fixture overrides must use --property=value.");
+            }
+            String prefix = argument.substring(0, separator + 1);
+            arguments.removeIf(existing -> existing.startsWith(prefix));
+            arguments.add(argument);
+        }
         context = new SpringApplication(CacheAsideApplication.class, configuration)
                 .run(arguments.toArray(String[]::new));
         jdbc = context.getBean(JdbcTemplate.class);
@@ -47,11 +55,12 @@ final class PurchaseTestApplication implements AutoCloseable {
 
     HttpResponse<String> request(String method, String path, String body, String client, String key) throws Exception {
         var request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
-                .header("X-Client-Id", client).header("Idempotency-Key", key)
+                .header("Idempotency-Key", key)
                 .header("Content-Type", "application/json").timeout(Duration.ofSeconds(30))
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody()
-                        : HttpRequest.BodyPublishers.ofString(body)).build();
-        return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+                        : HttpRequest.BodyPublishers.ofString(body));
+        if (client != null) { request.header("X-Client-Id", client); }
+        return HTTP.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     long fixture(int stock) {

@@ -7,11 +7,12 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Milestone 2 of 6 is implemented:** all five inventory strategies, durable
-idempotency, isolated unsafe races, Redis admission/reconciliation and real
-process-crash acceptance. **Paused before milestone 3.** This is not yet the
-complete visual/cache lab.
-[The roadmap](docs/roadmap.md) defines 21 meaningful commits and delivery gates.
+**Milestone 3 of 6 is implemented:** all five inventory strategies and durable
+idempotency, plus typed product caching, fenced invalidation, listener recovery,
+bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
+**Paused before milestone 4.** The experiment runner and visual dashboard are
+not implemented yet.
+[The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
 is the full target, not a list of already implemented features.
@@ -30,6 +31,12 @@ is the full target, not a list of already implemented features.
 All five share the persisted request/ledger boundary. A Redis rejection is not
 proof of database exhaustion. See [the admission contract](docs/stock-admission.md)
 for compensation, drift, fixed TTLs and drain-only reconciliation.
+
+Product reads cache positive and absent DTOs, never inventory decisions.
+[The cache contract](docs/product-cache.md) explains fixed TTLs, generation and
+epoch fencing, invalidate-only notifications and eventual-consistency limits.
+The limiter accepts 10 product/purchase requests per controlled client per
+10 seconds; Redis outages explicitly bypass it without removing DB backpressure.
 
 ## Prerequisites and pinned stack
 
@@ -93,5 +100,5 @@ routine stop or test step.
 ```
 
 An unavailable container runtime must fail acceptance, never silently skip it.
-The full dashboard, product cache, experiment runner and browser suite belong
+The full dashboard, experiment runner and browser suite belong
 to later milestones; there is no mock dashboard or invented screenshot.

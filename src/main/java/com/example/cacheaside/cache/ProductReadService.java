@@ -17,9 +17,12 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ProductReadService {
+    private static final Logger LOG = LoggerFactory.getLogger(ProductReadService.class);
     private final ProductService products;
     private final ProductCacheClient cache;
     private final CacheCoordinator coordinator;
@@ -129,7 +132,7 @@ public class ProductReadService {
             }
         }
         flow.add("Wait deadline/readiness ended; waiter cannot publish without a lease.");
-        return fallback(id, started, flow);
+        return result(started, Source.DATABASE_FALLBACK, WriteOutcome.NOT_ATTEMPTED, flow, load(id));
     }
 
     private ProductRead fallback(long id, long started, List<String> flow) {
@@ -158,7 +161,10 @@ public class ProductReadService {
     }
 
     private ProductRead result(long started, Source source, WriteOutcome outcome, List<String> flow, ProductView value) {
-        return new ProductRead(source, (System.nanoTime() - started) / 1_000_000.0, outcome, List.copyOf(flow), value);
+        double durationMs = (System.nanoTime() - started) / 1_000_000.0;
+        LOG.info("Product read source={} cacheWrite={} found={} durationMs={}",
+                source, outcome, value != null, durationMs);
+        return new ProductRead(source, durationMs, outcome, List.copyOf(flow), value);
     }
 
     public java.util.Map<String, Long> metrics() {

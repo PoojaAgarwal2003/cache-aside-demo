@@ -28,6 +28,7 @@ public class CacheCoordinator {
     }
 
     public synchronized Status status() {
+        ready(epoch);
         return new Status(readiness, epoch, listenerHealthy, lastRecovery, lastError);
     }
 

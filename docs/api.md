@@ -1,4 +1,4 @@
-# HTTP API (milestone 2)
+# HTTP API (milestone 3)
 
 All routes are local. Start with `--spring.profiles.active=demo` (or benchmark)
 to enable mutations. The default profile is read-only. `X-Client-Id` is a
@@ -6,8 +6,8 @@ controlled lab identity, **not authentication**. Do not publish these endpoints.
 
 | Route | Contract |
 |---|---|
-| `GET /status` | Live database probe, actual capabilities, cache-not-implemented state and configured artificial delays |
-| `GET /products/{id}` | 200/404 read envelope; always reads PostgreSQL until milestone 3, never claims a cache hit |
+| `GET /status` | Live database probe, milestone 3 capabilities, actual cache readiness and configured artificial delays |
+| `GET /products/{id}` | 200/404 typed read envelope, with actual cache/DB source and publication outcome |
 | `POST /products` | Full `{name,price,stock}`; 201, DTO and `Location` |
 | `PATCH /products/{id}` | Explicit partial update; 200 DTO, 404 absent |
 | `PUT /products/{id}` | **Nonstandard partial-update alias** for old workflows, identical to PATCH |
@@ -41,6 +41,60 @@ Invoke-RestMethod "$base/products/$($p.id)" -Method Patch -ContentType "applicat
 There is **no automatic fixture seed**. Creates, edits and deletes survive
 restart. Later guided scenarios will use explicit per-run isolated fixtures;
 migrations never restore Laptop/Keyboard/Monitor over user edits.
+
+## Product caching and diagnostics
+
+Read envelopes contain `source`, `responseTimeMs`, `cacheWriteOutcome`, chronological `flow`
+and product `data` (null for 404). Positive entries live 300-360 seconds; negative
+entries 30 seconds. Hits do not extend expiry. `X-Cache` is `HIT` for
+`REDIS_CACHE` / `REDIS_CACHE_AFTER_WAIT`, `MISS` for `DATABASE`, or `BYPASS`
+for `DATABASE_FALLBACK`. A cache hit never means the purchase API consulted it
+for stock decisions.
+
+Publication reports `STORED`, `REJECTED_GENERATION`, `REJECTED_LOCK`, `FAILED`,
+`SKIPPED_UNAVAILABLE`, or `NOT_ATTEMPTED` (hits and lease-waiter fallback).
+`FAILED` can mean a write response was lost, not proof that Redis stored nothing.
+Even a rejected stale fill can return the DB snapshot the request actually read.
+That request is not retroactively linearizable with a concurrent writer.
+
+`?stampedeProtection=false` is demo-only: it disables leases, not fencing or DB
+capacity bounds. Default-profile use returns 403. Eight DB readers are permitted
+by default; a saturated bulkhead returns 503 `DATABASE_OVERLOADED`. An interrupted
+wait returns retryable 503 `INTERRUPTED`, never a fabricated cache hit.
+
+| Demo-only route | Contract |
+|---|---|
+| `GET /cache/status` | Separate breakers, readiness, epoch, listener, recovery/error and read/limiter counters |
+| `GET /cache/products/{id}` | Redis availability, typed value/presence and remaining TTL; no DB fill |
+| `DELETE /cache/products/{id}` | Idempotent invalidation; absent is success; unconfirmed dependency result is 503 `CACHE_BYPASSED` |
+| `DELETE /cache/products` | `INVALIDATED_NAMESPACE` and fresh epoch, not a physical deletion count |
+
+Inspection distinguishes `PRESENT`, `CORRUPT`, `ABSENT_OR_EXPIRED` and `UNKNOWN`.
+Redis cannot distinguish expired from never-created keys without extra retained
+history; unavailable is never mislabeled absent. Readiness requires both healthy
+LISTEN registration and Redis recovery, not simply a CLOSED breaker.
+
+## Sliding-window request limit
+
+All `/products` routes, including purchases and retries, share the controlled
+client's default **10 accepted requests / 10 seconds** quota. Acceptance by the
+limiter counts even if the subsequent API operation returns 404/409/503.
+Missing `X-Client-Id` means `local`; invalid/oversized identities are rejected
+before Redis. Request safety runs first. Status, cache diagnostics and demo
+run/stock routes are excluded.
+
+`X-RateLimit-Status` reports `ALLOWED`, `REJECTED`, `BYPASSED`, or explicitly
+configured `DISABLED`. Healthy decisions include `X-RateLimit-Limit` and
+`X-RateLimit-Remaining`. Rejection is 429 `RATE_LIMITED`, with `Retry-After`
+rounded up to seconds, minimum 1; rejected requests do not extend the window.
+After waiting, retry a purchase with its original idempotency key.
+
+Redis errors/open limiter breaker **fail open for this lab**. `BYPASSED` omits
+quota and Retry-After headers rather than inventing remaining capacity.
+The DB bulkhead remains enforced. Rate-limit success cannot mark the product
+cache READY. Client IDs are spoofable and there is no per-identity cardinality
+defense for public deployment: this is not a trustworthy internet limiter.
+See [product-cache.md](product-cache.md) for the Redis-time atomic boundary.
 
 ## Purchases and retries
 

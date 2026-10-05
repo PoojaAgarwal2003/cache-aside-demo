@@ -118,7 +118,11 @@ final class RedisFixture implements AutoCloseable {
         command.addAll(arguments);
         var action = new ProcessBuilder(command).redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
-        assertThat(action.waitFor(10, TimeUnit.SECONDS)).isTrue();
+        if (!action.waitFor(60, TimeUnit.SECONDS)) {
+            action.destroyForcibly();
+            assertThat(action.waitFor(10, TimeUnit.SECONDS)).isTrue();
+            throw new IOException("Owned WSL fixture operation timed out; inspect " + log);
+        }
         assertThat(action.exitValue()).as("Owned native fixture operation; log %s", log).isZero();
     }
 

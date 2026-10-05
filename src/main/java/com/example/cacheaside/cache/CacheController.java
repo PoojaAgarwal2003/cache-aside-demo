@@ -2,6 +2,7 @@ package com.example.cacheaside.cache;
 
 import com.example.cacheaside.web.ApiException;
 import com.example.cacheaside.web.LabProperties;
+import com.example.cacheaside.ratelimit.RateLimiter;
 import jakarta.validation.constraints.Positive;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -20,15 +21,17 @@ public class CacheController {
     private final DbChangeListener listener;
     private final LabProperties properties;
     private final RedisAccess access;
+    private final RateLimiter limiter;
 
     public CacheController(CacheCoordinator coordinator, ProductCacheClient cache, ProductReadService reads,
-                           DbChangeListener listener, LabProperties properties, RedisAccess access) {
+                           DbChangeListener listener, LabProperties properties, RedisAccess access, RateLimiter limiter) {
         this.coordinator = coordinator;
         this.cache = cache;
         this.reads = reads;
         this.listener = listener;
         this.properties = properties;
         this.access = access;
+        this.limiter = limiter;
     }
 
     @GetMapping("/status")
@@ -36,6 +39,7 @@ public class CacheController {
         requireDemo();
         return Map.of("productCache", coordinator.status(), "listener", listener.health(), "metrics", reads.metrics(),
                 "breakers", access.status(),
+                "rateLimit", limiter.status(),
                 "explanation", "Eventual single-instance cache. LISTEN is not durable CDC; only read paths fill.");
     }
 

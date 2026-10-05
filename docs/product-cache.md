@@ -71,3 +71,26 @@ publish READY. No breaker transition callback flushes or recursively calls Redis
 listener health, last recovery/error, epoch and read/load/wait/overload counts.
 Recovery tests stop and restart the actual owned Redis **preserving its RDB**;
 old data remains in Redis but cannot be read from a newly trusted epoch.
+
+## Sliding-window limiter
+
+`RateLimitFilter` runs after the loopback/origin/body/identity boundary, using the
+servlet's decoded path so equivalent product URLs share the limit. It excludes
+status/debug/demo routes. A schema/client sorted-set key stores only accepted
+requests, with UUID members. One Lua invocation uses Redis `TIME` in milliseconds,
+removes scores at or below `now-window` and above `now`, counts, then either rejects
+or adds the new request and sets fixed window expiry. Thus retained timestamps
+are exactly in `(now-window, now]`; rejection does not add or extend state.
+Retry delay comes from the oldest remaining accepted timestamp.
+
+Defaults: enabled, 10 accepts, 10,000ms. `lab.rate-limit.limit` is bounded 1-1000;
+`window-ms` 1000-60000. Disabled is explicit in headers/status, never disguised as
+healthy enforcement. The separate `rate-limit` breaker fails open with BYPASSED,
+no invented quota. Accepted HTTP requests can still fail business validation or
+be rejected by the DB bulkhead. Identity is controlled lab input, not auth.
+
+Cache/read and limiter settings are listed in [operations.md](operations.md).
+Real Redis acceptance covers 15 concurrent HTTP requests within a measured
+window, exact boundaries via a test-only clock-expression substitution of the
+production script, natural expiry, distinct clients, independent breaker failures
+and fail-open overload. Production has no clock/fault override endpoint.

@@ -13,17 +13,17 @@ two milestones to keep the backend runner and dashboard independently reviewable
 | Milestone | Commits | Scope and delivery gate | State |
 |---|---:|---|---|
 | 1. Authoritative vertical slice | 4 | Reproducible boot, migrations, product API, atomic SQL purchase, persisted idempotency and real PostgreSQL evidence | Delivered; native and Docker CI verified |
-| 2. Inventory strategies | 5 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Implemented; fifth corrective commit authorized for Docker fixture |
-| 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Not started |
+| 2. Inventory strategies | 5 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Delivered; fifth correction passed Docker CI |
+| 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Implemented; see evidence and tagged CI for verification |
 | 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Not started |
 | 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Not started |
 | 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Not started |
 
-**Current handoff:** the owner authorized a fifth corrective milestone-2 commit
-and then milestone 3 on 2026-10-05. The original `milestone-2` tag stays immutable;
-`milestone-2-corrected` identifies the corrective delivery. Verify its container
-CI before continuing. [Evidence](evidence.md) records the initial CI defect and
-native acceptance results. Pause again after publishing milestone 3.
+**Current handoff:** milestone 3 contains four coherent commits; pause before
+milestone 4. The owner-authorized fifth milestone-2 correction passed container
+CI. Original `milestone-2` remains immutable; `milestone-2-corrected` identifies
+that correction. [Evidence](evidence.md) separates native results and published
+container verification. No milestone-4 runner work has begun.
 
 ## Milestone 1: authoritative vertical slice
 
