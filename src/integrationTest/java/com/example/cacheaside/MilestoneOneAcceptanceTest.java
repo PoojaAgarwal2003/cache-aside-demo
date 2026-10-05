@@ -83,7 +83,7 @@ class MilestoneOneAcceptanceTest {
         var read = request("GET", "/products/" + id, null);
         assertThat(body(read).get("data").get("version").asLong()).isEqualTo(3);
         assertThat(body(read).get("data").get("stock").asInt()).isEqualTo(6);
-        assertThat(body(read).get("source").asString()).isEqualTo("DATABASE");
+        assertThat(body(read).get("source").asString()).isEqualTo("DATABASE_FALLBACK");
         assertThat(request("DELETE", "/products/" + id, null).statusCode()).isEqualTo(204);
         var absent = request("GET", "/products/" + id, null);
         assertThat(absent.statusCode()).isEqualTo(404);

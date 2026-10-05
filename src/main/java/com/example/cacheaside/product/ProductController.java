@@ -1,9 +1,9 @@
 package com.example.cacheaside.product;
 
 import com.example.cacheaside.purchase.FixtureActivity;
+import com.example.cacheaside.cache.ProductReadService;
 import jakarta.validation.constraints.Positive;
 import java.net.URI;
-import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,25 +20,23 @@ import tools.jackson.databind.JsonNode;
 public class ProductController {
     private final ProductService service;
     private final FixtureActivity activity;
+    private final ProductReadService reads;
 
-    public ProductController(ProductService service, FixtureActivity activity) {
+    public ProductController(ProductService service, FixtureActivity activity, ProductReadService reads) {
         this.service = service;
         this.activity = activity;
+        this.reads = reads;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductRead> get(@PathVariable @Positive long id) {
-        long started = System.nanoTime();
-        var product = service.find(id);
-        var result = new ProductRead(ProductRead.Source.DATABASE,
-                (System.nanoTime() - started) / 1_000_000.0,
-                ProductRead.WriteOutcome.SKIPPED_UNAVAILABLE,
-                List.of("Product cache is not implemented; no Redis read-cache lookup or fill attempted.",
-                        "Read product " + id + " from PostgreSQL.",
-                        product.isPresent() ? "Found." : "Not found."),
-                product.orElse(null));
-        return ResponseEntity.status(product.isPresent() ? 200 : 404)
-                .header("X-Cache", "MISS").body(result);
+        var result = reads.read(id);
+        String header = switch (result.source()) {
+            case REDIS_CACHE, REDIS_CACHE_AFTER_WAIT -> "HIT";
+            case DATABASE -> "MISS";
+            case DATABASE_FALLBACK -> "BYPASS";
+        };
+        return ResponseEntity.status(result.data() == null ? 404 : 200).header("X-Cache", header).body(result);
     }
 
     @PostMapping

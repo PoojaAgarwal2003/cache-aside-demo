@@ -1,6 +1,7 @@
 package com.example.cacheaside.purchase;
 
 import com.example.cacheaside.product.ProductService;
+import com.example.cacheaside.cache.CacheInvalidation;
 import com.example.cacheaside.web.ApiException;
 import java.util.Objects;
 import java.util.UUID;
@@ -20,14 +21,17 @@ public class PurchaseService {
     private final PurchaseFixturePolicy fixtures;
     private final FixtureActivity activity;
     private final StockAdmissionService admission;
+    private final CacheInvalidation invalidation;
 
     public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies,
-                           PurchaseFixturePolicy fixtures, FixtureActivity activity, StockAdmissionService admission) {
+                           PurchaseFixturePolicy fixtures, FixtureActivity activity, StockAdmissionService admission,
+                           CacheInvalidation invalidation) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.fixtures = fixtures;
         this.activity = activity;
         this.admission = admission;
+        this.invalidation = invalidation;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -101,6 +105,9 @@ public class PurchaseService {
             throw new IllegalStateException("Owned purchase claim disappeared before completion.");
         }
         strategies.beforeCommit(request, purchaseId);
+        if (outcome == PurchaseDecision.Outcome.SOLD) {
+            invalidation.afterCommit(request.productId());
+        }
         return new PurchaseDecision(outcome, request.strategy(), request.productId(), request.quantity(),
                 stock == null ? null : stock.quantity(), stock == null ? null : stock.version(),
                 attempt, purchaseId, requestId, false);

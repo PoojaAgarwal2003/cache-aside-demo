@@ -29,3 +29,21 @@ An old fill cannot survive completed invalidation in the active namespace.
 TTL starts at fill, not database commit; query duration and notification detection
 lag prevent a strict commit-to-freshness guarantee of exactly 360 seconds.
 LISTEN/NOTIFY loss and already-running reads remain explicit consistency limits.
+
+The listener owns a separate JDBC connection, not a permanently borrowed Hikari
+slot. It registers `LISTEN`, uses bounded notification/heartbeat waits and
+250ms-to-3s reconnect backoff, and closes its own connection at shutdown.
+Notifications include their schema; other isolated lab schemas cannot invalidate
+this instance's fixtures. Notification handlers only invalidate, never load data.
+
+API writes and SOLD purchases register the same invalidation helper within their
+database transaction. It runs after successful commit, not before commit or on
+rollback. Redis failure marks cache BYPASS without changing a committed result.
+Unknown transaction completion also requires recovery. On startup or listener
+reconnect the coordinator requires LISTEN plus Redis health, rotates to a new
+UUID namespace and publishes READY. A fill paused in an older epoch is rejected.
+
+Demo-only inspection: `GET /cache/status`, `GET /cache/products/{id}`.
+`DELETE /cache/products/{id}` is idempotent invalidation when Redis is ready;
+an unconfirmed invalidation returns an explicit 503 with cache bypassed.
+`DELETE /cache/products` rotates namespace, never claims a physical deletion count.
