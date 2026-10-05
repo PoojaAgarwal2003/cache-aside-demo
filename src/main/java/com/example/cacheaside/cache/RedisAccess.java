@@ -1,7 +1,14 @@
 package com.example.cacheaside.cache;
 
 import java.util.List;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.time.Duration;
 import java.util.function.Function;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
@@ -20,19 +27,33 @@ public class RedisAccess {
 
     private static final Logger LOG = LoggerFactory.getLogger(RedisAccess.class);
     private final StringRedisTemplate redis;
+    private final Map<Domain, CircuitBreaker> breakers = new EnumMap<>(Domain.class);
+    public record BreakerStatus(String state, int bufferedCalls, int failedCalls, float failureRate) { }
 
     public RedisAccess(StringRedisTemplate redis) {
         this.redis = redis;
+        var config = CircuitBreakerConfig.custom()
+                .slidingWindowType(CircuitBreakerConfig.SlidingWindowType.COUNT_BASED)
+                .slidingWindowSize(10).minimumNumberOfCalls(5).failureRateThreshold(50)
+                .waitDurationInOpenState(Duration.ofSeconds(10))
+                .permittedNumberOfCallsInHalfOpenState(3).build();
+        for (Domain domain : Domain.values()) {
+            breakers.put(domain, CircuitBreaker.of(domain.label, config));
+        }
     }
 
     public String execute(Domain domain, DefaultRedisScript<String> script, List<String> keys, String... args) {
-        return call(domain, template -> template.execute(script, keys, (Object[]) args));
+        return call(domain, false, template -> template.execute(script, keys, (Object[]) args));
     }
 
     public void ping(Domain domain) {
-        String result = call(domain, template -> {
+        String result = call(domain, true, template -> {
             try (var connection = template.getConnectionFactory().getConnection()) {
-                return connection.ping();
+                String pong = connection.ping();
+                if (!"PONG".equals(pong)) {
+                    throw new Unavailable(domain, "Unexpected health response.");
+                }
+                return pong;
             }
         });
         if (!"PONG".equals(result)) {
@@ -40,14 +61,34 @@ public class RedisAccess {
         }
     }
 
-    private <T> T call(Domain domain, Function<StringRedisTemplate, T> operation) {
+    public boolean closed(Domain domain) {
+        return breakers.get(domain).getState() == CircuitBreaker.State.CLOSED;
+    }
+
+    public Map<String, BreakerStatus> status() {
+        var result = new LinkedHashMap<String, BreakerStatus>();
+        breakers.forEach((domain, breaker) -> {
+            var metrics = breaker.getMetrics();
+            result.put(domain.label, new BreakerStatus(breaker.getState().name(),
+                    metrics.getNumberOfBufferedCalls(), metrics.getNumberOfFailedCalls(), metrics.getFailureRate()));
+        });
+        return Map.copyOf(result);
+    }
+
+    private <T> T call(Domain domain, boolean probe, Function<StringRedisTemplate, T> operation) {
+        var breaker = breakers.get(domain);
+        if (domain == Domain.PRODUCT_CACHE && !probe && !closed(domain)) {
+            throw new Unavailable(domain, "Cache breaker is " + breaker.getState() + "; health probes only.");
+        }
         try {
-            T value = operation.apply(redis);
-            if (value == null) {
-                throw new Unavailable(domain, "Redis returned no result.");
-            }
-            return value;
-        } catch (DataAccessException failure) {
+            return breaker.executeSupplier(() -> {
+                T value = operation.apply(redis);
+                if (value == null) {
+                    throw new Unavailable(domain, "Redis returned no result.");
+                }
+                return value;
+            });
+        } catch (DataAccessException | CallNotPermittedException failure) {
             LOG.warn("Redis operation failed (domain={}, type={})", domain.label, failure.getClass().getSimpleName());
             throw new Unavailable(domain, "Redis dependency unavailable.");
         }

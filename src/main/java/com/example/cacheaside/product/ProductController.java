@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
@@ -29,8 +30,9 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductRead> get(@PathVariable @Positive long id) {
-        var result = reads.read(id);
+    public ResponseEntity<ProductRead> get(@PathVariable @Positive long id,
+                                         @RequestParam(defaultValue = "true") boolean stampedeProtection) {
+        var result = reads.read(id, stampedeProtection);
         String header = switch (result.source()) {
             case REDIS_CACHE, REDIS_CACHE_AFTER_WAIT -> "HIT";
             case DATABASE -> "MISS";

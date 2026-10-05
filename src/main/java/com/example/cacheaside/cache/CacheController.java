@@ -19,20 +19,23 @@ public class CacheController {
     private final ProductReadService reads;
     private final DbChangeListener listener;
     private final LabProperties properties;
+    private final RedisAccess access;
 
     public CacheController(CacheCoordinator coordinator, ProductCacheClient cache, ProductReadService reads,
-                           DbChangeListener listener, LabProperties properties) {
+                           DbChangeListener listener, LabProperties properties, RedisAccess access) {
         this.coordinator = coordinator;
         this.cache = cache;
         this.reads = reads;
         this.listener = listener;
         this.properties = properties;
+        this.access = access;
     }
 
     @GetMapping("/status")
     public Map<String, Object> status() {
         requireDemo();
         return Map.of("productCache", coordinator.status(), "listener", listener.health(), "metrics", reads.metrics(),
+                "breakers", access.status(),
                 "explanation", "Eventual single-instance cache. LISTEN is not durable CDC; only read paths fill.");
     }
 

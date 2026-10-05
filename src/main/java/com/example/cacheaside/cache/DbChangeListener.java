@@ -41,7 +41,7 @@ public class DbChangeListener implements SmartLifecycle {
                             @Value("${spring.flyway.default-schema}") String schema) {
         this.coordinator = coordinator;
         this.json = json;
-        this.url = url;
+        this.url = url + (url.contains("?") ? "&" : "?") + "connectTimeout=3&socketTimeout=3&tcpKeepAlive=true";
         this.schema = schema;
         credentials.setProperty("user", user);
         credentials.setProperty("password", password);

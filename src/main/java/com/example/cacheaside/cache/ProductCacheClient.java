@@ -120,7 +120,7 @@ public class ProductCacheClient {
                 return new Inspection("AVAILABLE", Presence.ABSENT_OR_EXPIRED, null, null, null);
             }
             if ("CORRUPT".equals(presence)) {
-                return corrupt(id, "Unexpected Redis value type; no unconditional removal attempted.");
+                return corrupt(id, "Unexpected Redis value type; atomic type-guarded removal completed.");
             }
             raw = snapshot.get("value").asString();
             long ttl = snapshot.get("ttl").asLong();

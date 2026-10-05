@@ -32,6 +32,9 @@ public class CacheCoordinator {
     }
 
     public synchronized boolean ready(String capturedEpoch) {
+        if (readiness == Readiness.READY && !access.closed(RedisAccess.Domain.PRODUCT_CACHE)) {
+            bypass("Product-cache breaker is not CLOSED; recovery health probes required.");
+        }
         return readiness == Readiness.READY && listenerHealthy && epoch.equals(capturedEpoch);
     }
 
@@ -63,6 +66,11 @@ public class CacheCoordinator {
                 readiness = Readiness.RECOVERING;
             }
             access.ping(RedisAccess.Domain.PRODUCT_CACHE);
+            if (!access.closed(RedisAccess.Domain.PRODUCT_CACHE)) {
+                readiness = Readiness.RECOVERING;
+                lastError = "Awaiting product-cache half-open health probes.";
+                return;
+            }
             if (readiness != Readiness.READY) {
                 epoch = UUID.randomUUID().toString();
                 lastRecovery = Instant.now();

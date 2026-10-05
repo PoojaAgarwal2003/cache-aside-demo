@@ -25,6 +25,7 @@ final class RedisFixture implements AutoCloseable {
     private final String distro;
     private final String binary;
     private final Path log;
+    private final String nativeDirectory;
     private Process process;
 
     RedisFixture() throws Exception {
@@ -32,6 +33,7 @@ final class RedisFixture implements AutoCloseable {
         binary = System.getenv("FLASHSALE_TEST_REDIS_BINARY");
         if (distro == null && binary == null) {
             log = null;
+            nativeDirectory = null;
             // Preserve Docker's mapped endpoint while restarting the actual Redis process.
             container = new GenericContainer<>(DockerImageName.parse(IMAGE)).withExposedPorts(6379)
                     .withCommand("sleep", "infinity").waitingFor(Wait.forSuccessfulCommand("true"));
@@ -48,6 +50,8 @@ final class RedisFixture implements AutoCloseable {
             }
             container = null;
             log = Files.createTempFile("flashsale-owned-redis-", ".log");
+            nativeDirectory = "/tmp/flashsale-owned-redis-" + java.util.UUID.randomUUID();
+            nativeAction(List.of("/bin/mkdir", nativeDirectory));
             host = "127.0.0.1";
             try (var socket = new ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress())) {
                 port = socket.getLocalPort();
@@ -63,12 +67,17 @@ final class RedisFixture implements AutoCloseable {
     }
 
     void stopServer() throws Exception {
+        stopServer(false);
+    }
+
+    void stopServer(boolean preserveData) throws Exception {
         if (container != null) {
-            var result = container.execInContainer("redis-cli", "shutdown", "nosave");
+            var result = container.execInContainer("redis-cli", "shutdown", preserveData ? "save" : "nosave");
             assertThat(result.getExitCode()).as(result.getStderr()).isZero();
         } else if (process != null && process.isAlive()) {
             var command = nativeCommand(binary.replace("redis-server", "redis-cli"));
-            command.addAll(List.of("-h", "127.0.0.1", "-p", Integer.toString(port), "shutdown", "nosave"));
+            command.addAll(List.of("-h", "127.0.0.1", "-p", Integer.toString(port),
+                    "shutdown", preserveData ? "save" : "nosave"));
             var stop = new ProcessBuilder(command).redirectErrorStream(true)
                     .redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
             assertThat(stop.waitFor(10, TimeUnit.SECONDS)).isTrue();
@@ -95,13 +104,22 @@ final class RedisFixture implements AutoCloseable {
     private void startNative() throws IOException {
         var command = nativeCommand(binary);
         command.addAll(List.of("--bind", "127.0.0.1", "--port", Integer.toString(port),
-                "--save", "", "--appendonly", "no", "--daemonize", "no"));
+                "--save", "", "--appendonly", "no", "--daemonize", "no", "--dir", nativeDirectory));
         process = new ProcessBuilder(command).redirectErrorStream(true)
                 .redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
     }
 
     private List<String> nativeCommand(String executable) {
         return new ArrayList<>(List.of("wsl.exe", "--distribution", distro, "--exec", executable));
+    }
+
+    private void nativeAction(List<String> arguments) throws Exception {
+        var command = new ArrayList<>(List.of("wsl.exe", "--distribution", distro, "--exec"));
+        command.addAll(arguments);
+        var action = new ProcessBuilder(command).redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
+        assertThat(action.waitFor(10, TimeUnit.SECONDS)).isTrue();
+        assertThat(action.exitValue()).as("Owned native fixture operation; log %s", log).isZero();
     }
 
     private void awaitReady() {
@@ -127,6 +145,8 @@ final class RedisFixture implements AutoCloseable {
             container.stop();
         } else {
             stopServer();
+            nativeAction(List.of("/bin/rm", "-f", nativeDirectory + "/dump.rdb"));
+            nativeAction(List.of("/bin/rmdir", nativeDirectory));
             Files.deleteIfExists(log);
         }
     }

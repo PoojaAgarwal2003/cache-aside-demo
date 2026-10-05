@@ -402,7 +402,7 @@ class RedisAdmissionAcceptanceTest {
             resetProbe();
             server.restartServer();
         }
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() ->
                 assertThat(status(id).get("redis").get("availability").asString()).isEqualTo("AVAILABLE"));
         assertThat(redisRunId()).isNotBlank().isNotEqualTo(originalRunId);
         assertThat(reconcile(id).statusCode()).isEqualTo(200);

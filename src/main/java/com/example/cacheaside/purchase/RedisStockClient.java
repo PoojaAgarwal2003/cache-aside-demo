@@ -1,14 +1,12 @@
 package com.example.cacheaside.purchase;
 
 import com.example.cacheaside.web.ApiException;
+import com.example.cacheaside.cache.RedisAccess;
 import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.dao.DataAccessException;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
@@ -21,11 +19,11 @@ public class RedisStockClient {
     private static final DefaultRedisScript<String> RELEASE = script("release-stock");
     private static final DefaultRedisScript<String> RESET = script("reset-stock");
     private static final DefaultRedisScript<String> INSPECT = script("inspect-stock");
-    private final StringRedisTemplate redis;
+    private final RedisAccess access;
     private final String namespace;
 
-    public RedisStockClient(StringRedisTemplate redis, @Value("${spring.flyway.default-schema}") String namespace) {
-        this.redis = redis;
+    public RedisStockClient(RedisAccess access, @Value("${spring.flyway.default-schema}") String namespace) {
+        this.access = access;
         this.namespace = namespace;
     }
 
@@ -90,12 +88,12 @@ public class RedisStockClient {
 
     private String call(DefaultRedisScript<String> script, List<String> keys, String... arguments) {
         try {
-            String result = redis.execute(script, keys, (Object[]) arguments);
+            String result = access.execute(RedisAccess.Domain.STOCK_ADMISSION, script, keys, arguments);
             if (result == null) {
                 throw ApiException.unavailable("REDIS_UNAVAILABLE", "Redis returned no admission decision.");
             }
             return result;
-        } catch (DataAccessException failure) {
+        } catch (RedisAccess.Unavailable failure) {
             LOG.warn("Stock admission Redis call failed (type={})", failure.getClass().getSimpleName());
             throw ApiException.unavailable("REDIS_UNAVAILABLE",
                     "Redis admission is unavailable; no alternate purchase strategy was used.");
@@ -103,10 +101,7 @@ public class RedisStockClient {
     }
 
     private static DefaultRedisScript<String> script(String name) {
-        var script = new DefaultRedisScript<String>();
-        script.setLocation(new ClassPathResource("redis/" + name + ".lua"));
-        script.setResultType(String.class);
-        return script;
+        return RedisAccess.script(name);
     }
 
     public record Snapshot(String availability, String presence, UUID epoch, Integer stock,

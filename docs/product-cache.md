@@ -22,8 +22,8 @@ separates availability, presence, decoded value, remaining TTL and diagnostic.
 Redis cannot distinguish a never-created key from one already expired without
 extra retained history, so both are honestly `ABSENT_OR_EXPIRED`; outage is
 `UNKNOWN`, not missing. Malformed/schema-invalid strings are removed only if
-their exact observed bytes still match. Wrong Redis types are diagnosed without
-unconditionally deleting an intervening writer's value.
+their exact observed bytes still match. Wrong Redis types are diagnosed and
+removed within the atomic type check, never deleting an intervening valid writer.
 
 An old fill cannot survive completed invalidation in the active namespace.
 TTL starts at fill, not database commit; query duration and notification detection
@@ -47,3 +47,27 @@ Demo-only inspection: `GET /cache/status`, `GET /cache/products/{id}`.
 `DELETE /cache/products/{id}` is idempotent invalidation when Redis is ready;
 an unconfirmed invalidation returns an explicit 503 with cache bypassed.
 `DELETE /cache/products` rotates namespace, never claims a physical deletion count.
+
+## Stampede, overload and dependency recovery
+
+Healthy misses use a five-second random-owner lease, then **recheck** cache before
+querying. Other readers poll every 50ms for at most three seconds, then perform an
+uncached fallback (or receive explicit overload); waiters never publish. Every
+database product load uses an eight-permit bulkhead with a 250ms acquisition
+deadline. HTTP threads/connections/accept queues are also bounded. A slow owner
+can outlive its lease and overlap another query; generation and owner checks
+reject its publication rather than claiming one query under arbitrary failures.
+Demo-only `?stampedeProtection=false` omits leases, not generation fencing.
+
+Named Resilience4j breakers `product-cache`, `rate-limit`, `stock-admission` have
+independent ten-call windows, minimum five calls, 50% failure threshold, ten-second
+open wait and three half-open trials. Transport/connect timeout is 500ms. Only
+health probes use product-cache HALF_OPEN; the listener's serialized coordinator
+waits for CLOSED, confirms LISTEN health, then rotates epoch before enabling reads.
+CLOSED alone is not cache readiness; successful rate/admission operations cannot
+publish READY. No breaker transition callback flushes or recursively calls Redis.
+
+`GET /cache/status` reports breaker state/counters separately from readiness,
+listener health, last recovery/error, epoch and read/load/wait/overload counts.
+Recovery tests stop and restart the actual owned Redis **preserving its RDB**;
+old data remains in Redis but cannot be read from a newly trusted epoch.

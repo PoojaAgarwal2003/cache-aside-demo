@@ -6,4 +6,5 @@ import com.example.cacheaside.product.ProductView;
 public interface CacheProbe {
     default void afterLoad(long id, ProductView value) { }
     default void beforeListen() { }
+    default void afterFill(long id) { }
 }
