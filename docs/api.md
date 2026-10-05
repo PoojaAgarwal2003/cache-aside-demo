@@ -1,4 +1,4 @@
-# HTTP API (milestone 1)
+# HTTP API (milestone 2)
 
 All routes are local. Start with `--spring.profiles.active=demo` (or benchmark)
 to enable mutations. The default profile is read-only. `X-Client-Id` is a
@@ -7,7 +7,7 @@ controlled lab identity, **not authentication**. Do not publish these endpoints.
 | Route | Contract |
 |---|---|
 | `GET /status` | Live database probe, actual capabilities, cache-not-implemented state and configured artificial delays |
-| `GET /products/{id}` | 200/404 read envelope; milestone 1 always reads PostgreSQL, never claims a cache hit |
+| `GET /products/{id}` | 200/404 read envelope; always reads PostgreSQL until milestone 3, never claims a cache hit |
 | `POST /products` | Full `{name,price,stock}`; 201, DTO and `Location` |
 | `PATCH /products/{id}` | Explicit partial update; 200 DTO, 404 absent |
 | `PUT /products/{id}` | **Nonstandard partial-update alias** for old workflows, identical to PATCH |
@@ -84,7 +84,7 @@ The database's deferred constraint prevents accidentally committing an unfinishe
 claim. `purchase_ledger` is a view of committed SOLD request rows, not a second
 independently written ledger. Product deletion never cascades into history.
 
-200 SOLD, 409 OUT_OF_STOCK/GAVE_UP and 404 NOT_FOUND are stable terminal outcomes.
+200 SOLD, 409 OUT_OF_STOCK/GAVE_UP/ADMISSION_REJECTED and 404 NOT_FOUND are stable terminal outcomes.
 An out-of-stock replay remains out-of-stock even after an administrative refill;
 a new logical purchase needs a new key. A replay preserves the original
 `purchaseId`, stock/version snapshot, attempts and `originalRequestId`; its
@@ -100,3 +100,39 @@ unbounded long-running public storage is not supported.
 Stock-left is that purchase's committed snapshot, not necessarily stock now.
 Safety assumes no concurrent unsafe/admin stock mutations. This is local
 database deduplication, **not exactly-once execution or real payment integration**.
+
+## Redis-assisted admission
+
+`strategy=REDIS_ASSISTED` (legacy alias `redis`) requires an explicitly initialized,
+trusted advisory counter. No automatic fallback or reset occurs during purchases.
+The shared database claim is acquired before a unique reservation journal entry
+is durably written and Redis Lua reserves the requested quantity. PostgreSQL still
+uses the atomic conditional decrement. All other purchase response fields and
+idempotency rules remain unchanged.
+
+| Demo-only route | Contract |
+|---|---|
+| `GET /demo/stock/{id}` | Database stock/epoch, Redis availability/presence/stock/TTL separately, trust and unresolved journal count |
+| `POST /demo/stock/{id}/reconcile` | Refuse an active fixture (409 FIXTURE_BUSY); resolve up to 100 pending reservations, then reset from locked DB stock under a fresh epoch |
+
+```powershell
+Invoke-RestMethod "$base/demo/stock/$($p.id)/reconcile" -Method Post
+Invoke-RestMethod "$base/products/$($p.id)/purchase?strategy=redis" -Method Post `
+  -Headers @{ "X-Client-Id" = "redis-buyer"; "Idempotency-Key" = "first" } `
+  -ContentType "application/json" -Body '{"quantity":2}'
+Invoke-RestMethod "$base/demo/stock/$($p.id)"
+```
+
+409 `ADMISSION_REJECTED` means Redis declined admission, **not** that DB stock
+is zero. 503 `REDIS_UNAVAILABLE`, `ADMISSION_UNTRUSTED`, `ADMISSION_OVERLOADED`
+and `RECONCILIATION_PENDING` are retryable dependency/readiness distinctions.
+An expired/uninitialized counter requires drain/reconciliation. A stable
+business rejection replays unchanged; use a new key for a new logical purchase.
+Committed replays do not contact Redis to reserve again.
+
+PATCH/PUT/DELETE and reconciliation reject in-flight local purchases. Locks
+use 256 bounded stripes; rare unrelated stripe collisions conservatively
+return FIXTURE_BUSY. This is single-instance coordination, not a distributed
+run lock. DB triggers mark admission untrusted after admin/external updates or
+non-Redis purchases; application restart also distrusts existing epochs.
+Read [stock-admission.md](stock-admission.md) for TTLs, Lua states and crash limits.

@@ -5,11 +5,11 @@ cd "$ROOT"
 case "${1:-}" in
     --unit-only)
         [[ $# -eq 1 ]] || { echo 'Usage: scripts/verify.sh [--unit-only]' >&2; exit 1; }
-        unset FLASHSALE_TEST_JDBC_URL
+        unset FLASHSALE_TEST_JDBC_URL FLASHSALE_TEST_REDIS_WSL FLASHSALE_TEST_REDIS_BINARY
         exec ./gradlew test bootJar --console=plain
         ;;
     '')
-        unset FLASHSALE_TEST_JDBC_URL
+        unset FLASHSALE_TEST_JDBC_URL FLASHSALE_TEST_REDIS_WSL FLASHSALE_TEST_REDIS_BINARY
         exec ./gradlew check bootJar --console=plain
         ;;
     *)

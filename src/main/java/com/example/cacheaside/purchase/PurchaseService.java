@@ -18,12 +18,16 @@ public class PurchaseService {
     private final TransactionTemplate transaction;
     private final InventoryStrategies strategies;
     private final PurchaseFixturePolicy fixtures;
+    private final FixtureActivity activity;
+    private final StockAdmissionService admission;
 
     public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies,
-                           PurchaseFixturePolicy fixtures) {
+                           PurchaseFixturePolicy fixtures, FixtureActivity activity, StockAdmissionService admission) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.fixtures = fixtures;
+        this.activity = activity;
+        this.admission = admission;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -31,6 +35,21 @@ public class PurchaseService {
     }
 
     public PurchaseDecision purchase(PurchaseRequest request, UUID requestId) {
+        return activity.purchase(request.productId(), () -> {
+            if ("REDIS_ASSISTED".equals(request.strategy())) {
+                return admission.admittedWork(() -> {
+                    try {
+                        return purchaseAttempts(request, requestId);
+                    } finally {
+                        admission.settleRequest(request);
+                    }
+                });
+            }
+            return purchaseAttempts(request, requestId);
+        });
+    }
+
+    private PurchaseDecision purchaseAttempts(PurchaseRequest request, UUID requestId) {
         fixtures.prepare(request);
         // execute() returns only after commit. Unknown commit failures escape as
         // retryable errors; a retry resolves the persisted key, never refunds.
@@ -51,6 +70,7 @@ public class PurchaseService {
     private PurchaseDecision execute(PurchaseRequest request, UUID requestId, int attempt) {
         jdbc.execute("SET LOCAL lock_timeout = '2s'");
         jdbc.execute("SET LOCAL statement_timeout = '5s'");
+        admission.lockRequest(request.clientId(), request.keyHash());
         int claimed = jdbc.update("""
                 INSERT INTO purchase_requests
                     (client_id,key_hash,fingerprint,product_id,quantity,strategy,original_request_id)

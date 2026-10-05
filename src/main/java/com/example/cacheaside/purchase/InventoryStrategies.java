@@ -15,11 +15,14 @@ public class InventoryStrategies {
     private final JdbcTemplate jdbc;
     private final LabProperties properties;
     private final PurchaseProbe probe;
+    private final StockAdmissionService admission;
 
     public InventoryStrategies(JdbcTemplate jdbc, LabProperties properties,
-                               ObjectProvider<PurchaseProbe> probes, Environment environment) {
+                               ObjectProvider<PurchaseProbe> probes, Environment environment,
+                               StockAdmissionService admission) {
         this.jdbc = jdbc;
         this.properties = properties;
+        this.admission = admission;
         probe = environment.acceptsProfiles(Profiles.of("test"))
                 ? probes.getIfAvailable(() -> new PurchaseProbe() { }) : new PurchaseProbe() { };
     }
@@ -30,7 +33,23 @@ public class InventoryStrategies {
             case ATOMIC_SQL -> atomic(request);
             case PESSIMISTIC -> checked(request, attempt, true);
             case OPTIMISTIC -> checked(request, attempt, false);
+            case REDIS_ASSISTED -> admitted(request);
         };
+    }
+
+    private Decision admitted(PurchaseRequest request) {
+        Stock stock = read(request.productId(), false);
+        validateFixture(stock);
+        if (stock == null) {
+            return Decision.rejected(PurchaseDecision.Outcome.NOT_FOUND);
+        }
+        var reservation = admission.reserve(request);
+        if (reservation == null) {
+            return Decision.rejected(PurchaseDecision.Outcome.ADMISSION_REJECTED);
+        }
+        jdbc.execute("SET LOCAL flashsale.redis_admitted='on'");
+        probe.afterReservation(request, reservation);
+        return atomic(request);
     }
 
     private Decision unsafe(PurchaseRequest request, int attempt) {

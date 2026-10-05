@@ -52,5 +52,7 @@ class PurchaseRequestTest {
                 PurchaseRequest.parse(1, null, "OPTIMISTIC", null, "key").fingerprint());
         assertThat(optimistic.fingerprint()).isNotEqualTo(
                 PurchaseRequest.parse(1, null, "PESSIMISTIC", null, "key").fingerprint());
+        assertThat(PurchaseRequest.parse(1, null, "redis", null, "key")).isEqualTo(
+                PurchaseRequest.parse(1, null, "REDIS_ASSISTED", null, "key"));
     }
 }

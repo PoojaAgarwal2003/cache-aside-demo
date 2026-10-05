@@ -1,5 +1,6 @@
 package com.example.cacheaside.product;
 
+import com.example.cacheaside.purchase.FixtureActivity;
 import jakarta.validation.constraints.Positive;
 import java.net.URI;
 import java.util.List;
@@ -18,9 +19,11 @@ import tools.jackson.databind.JsonNode;
 @RequestMapping("/products")
 public class ProductController {
     private final ProductService service;
+    private final FixtureActivity activity;
 
-    public ProductController(ProductService service) {
+    public ProductController(ProductService service, FixtureActivity activity) {
         this.service = service;
+        this.activity = activity;
     }
 
     @GetMapping("/{id}")
@@ -30,7 +33,7 @@ public class ProductController {
         var result = new ProductRead(ProductRead.Source.DATABASE,
                 (System.nanoTime() - started) / 1_000_000.0,
                 ProductRead.WriteOutcome.SKIPPED_UNAVAILABLE,
-                List.of("Milestone 1: cache is not implemented; no Redis lookup or fill attempted.",
+                List.of("Product cache is not implemented; no Redis read-cache lookup or fill attempted.",
                         "Read product " + id + " from PostgreSQL.",
                         product.isPresent() ? "Found." : "Not found."),
                 product.orElse(null));
@@ -46,12 +49,14 @@ public class ProductController {
 
     @RequestMapping(path = "/{id}", method = {RequestMethod.PATCH, RequestMethod.PUT})
     public ProductView update(@PathVariable @Positive long id, @RequestBody JsonNode body) {
-        return service.update(id, body);
+        return activity.maintenance(id, () -> service.update(id, body));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable @Positive long id) {
-        service.delete(id);
-        return ResponseEntity.noContent().build();
+        return activity.maintenance(id, () -> {
+            service.delete(id);
+            return ResponseEntity.noContent().build();
+        });
     }
 }
