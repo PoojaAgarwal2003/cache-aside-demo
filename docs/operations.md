@@ -43,7 +43,7 @@ The wrapper uses the exact pinned Gradle distribution and checksum; no global
 Gradle install is needed. Full verification always executes the integration
 task rather than reusing a previous database environment's cached result.
 
-## Explicit native PostgreSQL fallback for developers
+## Explicit native PostgreSQL and WSL Redis for developers
 
 This is an **alternative real-database test backend**, not a silent Docker
 fallback. Install PostgreSQL 16.15 from the
@@ -54,10 +54,13 @@ these tests at a valuable database. Elevated Windows terminals must use
 PostgreSQL's `pg_ctl` restricted-user launcher, not direct elevated `postgres`.
 
 ```powershell
-# Example: project-owned PostgreSQL already listening on 55439.
+# Example: project-owned PostgreSQL already listening on 55439, with an
+# existing dedicated WSL distribution containing real Redis 7.4.11.
 $env:FLASHSALE_TEST_DB_USER = "flashsale"
 $env:FLASHSALE_TEST_DB_PASSWORD = "local-lab-only"
-.\scripts\verify.ps1 -NativePostgresPort 55439
+.\scripts\verify.ps1 -NativePostgresPort 55439 `
+  -NativeRedisWsl "FlashSaleLab-Test" `
+  -NativeRedisBinary "/opt/flashsale/redis-7.4.11/src/redis-server"
 
 $env:POSTGRES_PORT = "55439"
 $env:APP_PORT = "58080"
@@ -69,11 +72,38 @@ Acceptance generates an isolated schema per fixture and drops **only that
 generated schema** after closing the application. It does not erase the lab
 schema or delete volumes. `-SkipContainers` does not start or stop a native
 PostgreSQL server; its owner must manage its lifecycle explicitly.
+The WSL Redis override launches one **owned foreground Redis process** per
+fixture on a fresh loopback port, verifies readiness, and shuts down only that
+instance. Its matching `redis-cli` must be beside `redis-server`. Test Redis
+disables persistence and never uses the application's data volume.
+Both WSL flags are required together; omitting them uses Testcontainers Redis.
+The scripts do not install WSL, Redis or PostgreSQL. A normal native app launch
+still needs its own Redis on `REDIS_PORT` for REDIS_ASSISTED; these short-lived
+test Redis instances are not application dependencies.
 
 For direct Gradle debugging, `FLASHSALE_TEST_JDBC_URL` may contain only
 `jdbc:postgresql://127.0.0.1:<port>/flashsale_test` (no arbitrary hosts/options).
 `verify.ps1` requires its explicit native-port argument and otherwise clears
 that selection for the run. Native tests never masquerade as Testcontainers.
+Direct Gradle native Redis selection uses `FLASHSALE_TEST_REDIS_WSL` and
+`FLASHSALE_TEST_REDIS_BINARY`. The default verification scripts clear inherited
+test backend selections unless explicitly supplied. The default Linux/macOS
+verification uses real Testcontainers for both databases.
+
+## Strategy comparison without the later experiment runner
+
+Create a separate product for each strategy using [the API walkthrough](api.md).
+Never reuse a NONE product for protected purchases. For REDIS_ASSISTED, call
+`POST /demo/stock/{id}/reconcile` **before** buying; use
+`GET /demo/stock/{id}` to compare the advisory counter with authoritative stock.
+Counter expiry after 60 seconds requires explicit drain/reconciliation, not
+an automatic refill that could restore quantities still reserved by buyers.
+API resets/deletes are rejected while that fixture has active local work.
+
+Run `integrationTest` for the controlled concurrency comparison and actual
+before/after-commit child-process termination tests. They traverse real HTTP,
+then check committed ledger quantities and DB stock, not just HTTP 200 counts.
+The runnable user-facing experiment harness and cancellation belong to milestone 4.
 
 ## Linux/macOS
 
@@ -102,6 +132,11 @@ are checked in CI. Windows execution does not depend on these files.
 | Hikari maximum / minimum | 16 / 2 | Bounded application connections |
 | Pool acquisition | 2000 ms | Explicit availability error on exhaustion |
 | Purchase lock / statement / transaction | 2 / 5 / 8 seconds | Bounded waits; retry purchases with same key |
+| Optimistic attempts / retry jitter | 20 / 1-5 ms | Fresh transactions; exhaustion is GAVE_UP, not OUT_OF_STOCK |
+| Redis command / connect timeout | 500 / 500 ms | Admission fails explicitly; no strategy fallback |
+| Redis admission workers / permit wait | 4 / 2 seconds | Bounds nested journal/inventory connections |
+| Counter / reservation TTL | 60 / 120 seconds | Fixed expiry; release never recreates an expired counter |
+| Automatic cleanup loop / manual reconciliation loop | 3 / 15 seconds | Monotonic loop bounds plus the final bounded resolver transaction |
 | HTTP threads / connections / accept queue | 64 / 128 / 64 | Local server backpressure, not a public SLA |
 | JSON body / headers | 8192 bytes / 8 KB | Chunked bodies also bounded |
 | Product initial/reset stock | 0-1000000 | No negative API reset |
@@ -110,7 +145,7 @@ are checked in CI. Windows execution does not depend on these files.
 | Application / cache-flow logs | 50 / 25 MB rotation caps | 7-day history; current active files are additional |
 
 Current runtime logs are `logs/app.log` and `logs/cache-flow.log`; the latter has
-no fake cache events in milestone 1. Both are ignored by Git. Test reports are
+no fake product-cache events in milestone 2. Both are ignored by Git. Test reports are
 under the chosen build directory's `reports/tests` and `test-results`.
 
 For raw database verification:
@@ -118,6 +153,8 @@ For raw database verification:
 ```sql
 SELECT id, stock, version, updated_at FROM lab.products ORDER BY id;
 SELECT product_id, sum(quantity) AS sold FROM lab.purchase_ledger GROUP BY product_id;
+SELECT product_id, epoch, trusted FROM lab.stock_admission_epochs;
+SELECT product_id, state, count(*) FROM lab.stock_reservations GROUP BY product_id, state;
 -- An ordinary external write advances the version trigger:
 UPDATE lab.products SET name = 'Edited externally' WHERE id = <your_fixture_id>;
 ```

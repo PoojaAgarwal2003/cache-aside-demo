@@ -7,16 +7,29 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Milestone 1 of 6 is implemented:** versioned product CRUD, atomic SQL
-purchases, persisted idempotency and real PostgreSQL acceptance. **Paused before
-milestone 2.** This is not yet the complete visual/cache lab.
+**Milestone 2 of 6 is implemented:** all five inventory strategies, durable
+idempotency, isolated unsafe races, Redis admission/reconciliation and real
+process-crash acceptance. **Paused before milestone 3.** This is not yet the
+complete visual/cache lab.
 [The roadmap](docs/roadmap.md) defines 21 meaningful commits and delivery gates.
-[Evidence](docs/evidence.md) distinguishes native PostgreSQL results from the
-locally blocked Docker path. [The supplied specification](docs/specification.txt)
+[Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
+Docker-backed CI. [The supplied specification](docs/specification.txt)
 is the full target, not a list of already implemented features.
 
 [API walkthrough](docs/api.md) | [Architecture](docs/architecture.md) |
 [Operating guide](docs/operations.md) | [Limitations](docs/limitations.md)
+
+| Strategy | What enforces the decision |
+|---|---|
+| NONE | **Intentionally unsafe**, demo-only unlocked check/decrement; isolated fixtures |
+| PESSIMISTIC | PostgreSQL row lock across check, synthetic work and decrement |
+| OPTIMISTIC | Stock/version predicate; fresh transactions, at most 20 attempts |
+| ATOMIC_SQL (default) | Single PostgreSQL conditional decrement |
+| REDIS_ASSISTED (`redis` alias) | Epoch-scoped advisory admission, then the same authoritative SQL predicate |
+
+All five share the persisted request/ledger boundary. A Redis rejection is not
+proof of database exhaustion. See [the admission contract](docs/stock-admission.md)
+for compensation, drift, fixed TTLs and drain-only reconciliation.
 
 ## Prerequisites and pinned stack
 
@@ -75,10 +88,10 @@ routine stop or test step.
 
 ```powershell
 .\gradlew.bat test                # Fast unit tests, no Docker
-.\gradlew.bat integrationTest     # Real PostgreSQL; Docker prerequisite
+.\gradlew.bat integrationTest     # Real PostgreSQL AND Redis; Docker prerequisite
 .\gradlew.bat check bootJar       # All current milestone checks + executable JAR
 ```
 
 An unavailable container runtime must fail acceptance, never silently skip it.
-The full dashboard, cache, other purchase strategies and browser suite belong
+The full dashboard, product cache, experiment runner and browser suite belong
 to later milestones; there is no mock dashboard or invented screenshot.

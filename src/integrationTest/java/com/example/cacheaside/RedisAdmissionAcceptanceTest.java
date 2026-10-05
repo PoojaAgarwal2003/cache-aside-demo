@@ -6,6 +6,7 @@ import com.example.cacheaside.purchase.RedisStockClient;
 import com.example.cacheaside.purchase.StockAdmissionService;
 import com.example.cacheaside.web.ApiException;
 import java.net.http.HttpResponse;
+import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -18,6 +19,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -166,6 +169,156 @@ class RedisAdmissionAcceptanceTest {
         var replay = buy(id, "unknown-" + id, "key", 2);
         assertThat(body(replay).get("replayed").asBoolean()).isTrue();
         assertThat(app.sold(id)).isEqualTo(2);
+    }
+
+    @Test
+    void actualDatabaseFailureAfterDecrementCompensatesReservationAndRollsBackLedger() throws Exception {
+        long id = fixture(5);
+        String name = "reject_redis_" + id;
+        app.jdbc.execute("CREATE FUNCTION " + name + "() RETURNS trigger LANGUAGE plpgsql AS $$ "
+                + "BEGIN IF NEW.product_id=" + id + " AND NEW.outcome='SOLD' "
+                + "THEN RAISE EXCEPTION 'injected post-decrement failure'; END IF; RETURN NEW; END $$");
+        app.jdbc.execute("CREATE TRIGGER " + name + " BEFORE UPDATE ON purchase_requests "
+                + "FOR EACH ROW EXECUTE FUNCTION " + name + "()");
+        try {
+            var response = buy(id, "db-rollback-" + id, "key", 2);
+            assertThat(response.statusCode()).isEqualTo(503);
+            assertThat(body(response).get("code").asString()).isEqualTo("DATABASE_UNAVAILABLE");
+            assertThat(app.stock(id)).isEqualTo(5);
+            assertThat(app.sold(id)).isZero();
+            assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(5);
+            assertThat(app.jdbc.queryForObject("SELECT state FROM stock_reservations WHERE product_id=?",
+                    String.class, id)).isEqualTo("RELEASED");
+        } finally {
+            app.jdbc.execute("DROP TRIGGER " + name + " ON purchase_requests");
+            app.jdbc.execute("DROP FUNCTION " + name + "()");
+        }
+        assertThat(buy(id, "db-rollback-" + id, "key", 2).statusCode()).isEqualTo(200);
+    }
+
+    @Test
+    void expiredCounterBeforeCompensationIsNeverResurrected() throws Exception {
+        long id = fixture(5);
+        probe.reserved = (request, reservation) -> {
+            long metadataTtl = redis.getExpire(client.reservationKey(id, reservation.id()), TimeUnit.MILLISECONDS);
+            long counterTtl = redis.getExpire(client.counterKey(id), TimeUnit.MILLISECONDS);
+            assertThat(metadataTtl).isBetween(counterTtl + 1, RedisStockClient.RESERVATION_TTL_MS);
+            assertThat(counterTtl).isBetween(1L, RedisStockClient.COUNTER_TTL_MS);
+            redis.expire(client.counterKey(id), Duration.ofMillis(30));
+            await().atMost(Duration.ofSeconds(2)).until(() -> !Boolean.TRUE.equals(redis.hasKey(client.counterKey(id))));
+            throw ApiException.unavailable("INJECTED_ROLLBACK", "Counter really expired before compensation.");
+        };
+        assertThat(buy(id, "expired-" + id, "key", 2).statusCode()).isEqualTo(503);
+        assertThat(redis.hasKey(client.counterKey(id))).isFalse();
+        assertThat(status(id).get("redis").get("presence").asString()).isEqualTo("ABSENT");
+        assertThat(app.jdbc.queryForObject("SELECT state FROM stock_reservations WHERE product_id=?",
+                String.class, id)).isEqualTo("EXPIRED");
+        assertThat(app.stock(id)).isEqualTo(5);
+        assertThat(app.sold(id)).isZero();
+        resetProbe();
+        assertThat(body(buy(id, "expired-" + id, "retry", 1)).get("code").asString())
+                .isEqualTo("ADMISSION_UNTRUSTED");
+        assertThat(reconcile(id).statusCode()).isEqualTo(200);
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(5);
+    }
+
+    @Test
+    void replacementEpochBeforeCompensationIsNeverInflated() throws Exception {
+        long id = fixture(5);
+        String replacement = UUID.randomUUID().toString();
+        probe.reserved = (request, reservation) -> {
+            redis.opsForHash().putAll(client.counterKey(id), java.util.Map.of("epoch", replacement, "stock", "99"));
+            throw ApiException.unavailable("INJECTED_ROLLBACK", "Counter was replaced outside the drain-only API.");
+        };
+        assertThat(buy(id, "replaced-" + id, "key", 2).statusCode()).isEqualTo(503);
+        assertThat(redis.opsForHash().get(client.counterKey(id), "stock")).isEqualTo("99");
+        assertThat(redis.opsForHash().get(client.counterKey(id), "epoch")).isEqualTo(replacement);
+        assertThat(app.jdbc.queryForObject("SELECT state FROM stock_reservations WHERE product_id=?",
+                String.class, id)).isEqualTo("STALE_EPOCH");
+        assertThat(status(id).get("trusted").asBoolean()).isFalse();
+        resetProbe();
+        assertThat(reconcile(id).statusCode()).isEqualTo(200);
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(5);
+    }
+
+    @Test
+    void repeatingReserveScriptDoesNotReserveTwice() throws Exception {
+        long id = fixture(5);
+        probe.reserved = (request, reservation) -> {
+            var script = script("reserve-stock");
+            for (int retry = 0; retry < 3; retry++) {
+                assertThat(redis.execute(script, java.util.List.of(client.counterKey(id),
+                                client.reservationKey(id, reservation.id())),
+                        reservation.epoch().toString(), "2", Long.toString(RedisStockClient.RESERVATION_TTL_MS)))
+                        .isEqualTo("HELD");
+            }
+            assertThat(redis.opsForHash().get(client.counterKey(id), "stock")).isEqualTo("3");
+        };
+        assertThat(buy(id, "lua-retry-" + id, "key", 2).statusCode()).isEqualTo(200);
+        assertThat(app.stock(id) + app.sold(id)).isEqualTo(5);
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(3);
+    }
+
+    @Test
+    void inflatedAdvisoryCounterCannotSellInsufficientDatabaseQuantity() throws Exception {
+        long id = fixture(1);
+        redis.opsForHash().put(client.counterKey(id), "stock", "99");
+        var response = buy(id, "inflated-" + id, "key", 2);
+        assertThat(response.statusCode()).isEqualTo(409);
+        assertThat(body(response).get("code").asString()).isEqualTo("OUT_OF_STOCK");
+        assertThat(app.stock(id)).isEqualTo(1);
+        assertThat(app.sold(id)).isZero();
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(99);
+        assertThat(app.jdbc.queryForObject("SELECT state FROM stock_reservations WHERE product_id=?",
+                String.class, id)).isEqualTo("RELEASED");
+    }
+
+    @Test
+    void absenceOfCommittedKeyIsNotEnoughToRefundUntilTransactionFenceResolves() throws Exception {
+        long id = fixture(5);
+        var purchase = PurchaseRequest.parse(id, null, "REDIS_ASSISTED", "uncertain-" + id, "key");
+        UUID epoch = UUID.fromString(status(id).get("databaseEpoch").asString());
+        UUID reservation = UUID.randomUUID();
+        app.jdbc.update("""
+                INSERT INTO stock_reservations(reservation_id,product_id,epoch,client_id,key_hash,quantity)
+                VALUES (?,?,?,?,?,1)
+                """, reservation, id, epoch, purchase.clientId(), purchase.keyHash());
+        assertThat(redis.execute(script("reserve-stock"),
+                java.util.List.of(client.counterKey(id), client.reservationKey(id, reservation)),
+                epoch.toString(), "1", Long.toString(RedisStockClient.RESERVATION_TTL_MS))).isEqualTo("RESERVED");
+        try (var original = DriverManager.getConnection(app.database.scopedUrl(),
+                app.database.username, app.database.password);
+             var fence = original.prepareStatement("SELECT pg_advisory_xact_lock(hashtextextended(?,0))")) {
+            original.setAutoCommit(false);
+            fence.setString(1, purchase.clientId() + ":" + purchase.keyHash());
+            fence.execute();
+            var unresolved = reconcile(id);
+            assertThat(unresolved.statusCode()).isEqualTo(503);
+            assertThat(state(reservation)).isEqualTo("PENDING");
+            assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(4);
+            original.rollback();
+        }
+        assertThat(reconcile(id).statusCode()).isEqualTo(200);
+        assertThat(state(reservation)).isEqualTo("RELEASED");
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(5);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ATOMIC_SQL", "PESSIMISTIC", "OPTIMISTIC"})
+    void nonRedisProtectedPurchasesDistrustAdvisoryEpoch(String strategy) throws Exception {
+        long id = fixture(5);
+        assertThat(app.purchase(id, strategy, "other-strategy-" + id, "key", 2).statusCode()).isEqualTo(200);
+        assertThat(status(id).get("trusted").asBoolean()).isFalse();
+        assertThat(app.stock(id) + app.sold(id)).isEqualTo(5);
+        assertThat(reconcile(id).statusCode()).isEqualTo(200);
+        assertThat(status(id).get("redis").get("stock").asInt()).isEqualTo(3);
+    }
+
+    private DefaultRedisScript<String> script(String name) {
+        var script = new DefaultRedisScript<String>();
+        script.setLocation(new ClassPathResource("redis/" + name + ".lua"));
+        script.setResultType(String.class);
+        return script;
     }
 
     @Test

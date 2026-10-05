@@ -23,7 +23,7 @@ try {
         & (Join-Path $ProjectRoot 'gradlew.bat') bootJar --console=plain
         if ($LASTEXITCODE -ne 0) { throw 'Application build failed.' }
     }
-    $jar = Join-Path (Get-LabBuildDirectory) 'libs\cache-aside-demo-0.1.0.jar'
+    $jar = Join-Path (Get-LabBuildDirectory) 'libs\cache-aside-demo.jar'
     if (-not (Test-Path -LiteralPath $jar)) { throw 'Executable JAR is missing; run without -NoBuild.' }
     New-Item -ItemType Directory -Path (Split-Path $stateFile) -Force | Out-Null
     $process = Start-Process -FilePath $java -ArgumentList @('-jar', "`"$jar`"", "--spring.profiles.active=$Profile") `

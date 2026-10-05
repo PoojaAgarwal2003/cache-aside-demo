@@ -106,7 +106,13 @@ public class StockAdmissionService {
     void settleRequest(PurchaseRequest request) {
         try {
             var reservations = pending("client_id=? AND key_hash=?", request.clientId(), request.keyHash());
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
             for (var reservation : reservations) {
+                if (System.nanoTime() >= deadline) {
+                    LOG.warn("Reservation cleanup deadline reached (productId={}); reconciliation remains pending",
+                            request.productId());
+                    break;
+                }
                 resolve(reservation);
             }
         } catch (ApiException | DataAccessException | TransactionException failure) {

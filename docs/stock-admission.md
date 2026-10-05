@@ -27,6 +27,8 @@ Use separate products for unsafe NONE and protected comparisons.
 PostgreSQL unavailability or an ambiguous lock/commit result leaves PENDING; it
 never triggers a blind refund. Failed compensation logs a warning and is visible
 in `unresolvedReservations`. Cleanup does not turn a committed SOLD into an error.
+Automatic cleanup has a 3-second loop deadline (plus the last bounded resolver
+transaction); unresolved work is logged and left for explicit reconciliation.
 Retries use the same key; a later purchase attempt cannot double-decrement.
 The journal survives crashes before/after Lua and inventory commit. Resolvers
 also serialize their own journal-row changes, so release-before-journal-commit

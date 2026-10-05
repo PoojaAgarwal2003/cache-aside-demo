@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.example'
-version = '0.1.0'
+version = '0.2.0'
 description = 'FlashSale Lab - a single-instance inventory and cache consistency lab'
 
 if (providers.environmentVariable('FLASHSALE_BUILD_DIR').isPresent()) {
@@ -78,6 +78,7 @@ tasks.register('integrationTest', Test) {
     group = 'verification'
     testClassesDirs = sourceSets.integrationTest.output.classesDirs
     classpath = sourceSets.integrationTest.runtimeClasspath
+    systemProperty 'flashsale.integration.classpath', sourceSets.integrationTest.runtimeClasspath.asPath
     shouldRunAfter test
     // A database run must actually execute, not reuse a previous environment's result.
     outputs.upToDateWhen { false }
@@ -85,6 +86,10 @@ tasks.register('integrationTest', Test) {
 
 tasks.named('check') {
     dependsOn integrationTest
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'cache-aside-demo.jar'
 }
 
 tasks.named('wrapper') {

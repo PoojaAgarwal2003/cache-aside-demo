@@ -1,4 +1,90 @@
-# Milestone 1 evidence
+# Acceptance evidence
+
+## Milestone 2: inventory strategies
+
+Recorded **2026-10-05**, before the milestone-2 push. Windows x64, Temurin
+17.0.20.1+1, Gradle 9.8.0, Boot 4.1.1, native PostgreSQL 16.15 and **real Redis
+7.4.11**, compiled from the checksum-verified official release inside an
+isolated Alpine 3.22.6 WSL2 environment. Redis source SHA-256:
+`3c266ece0abd54ed3b1c912c6eb86b7508cf382cb690ee6649d3843f018f6357`.
+Tests start/stop their own foreground Redis instances; Redis was not mocked.
+Read and purchase artificial delays were zero.
+
+```powershell
+.\scripts\verify.ps1 -NativePostgresPort 55439 `
+  -NativeRedisWsl "FlashSaleLab-Test" `
+  -NativeRedisBinary "/opt/flashsale/redis-7.4.11/src/redis-server"
+```
+
+**58 tests passed: 0 failures, 0 errors, 0 skipped.** Full `check bootJar`
+passed through the **Windows PowerShell 5.1** verification entry point.
+
+| Suite | Tests | Evidence |
+|---|---:|---|
+| Unit suites | 8 | Validation, identity/fingerprints, strategy and legacy alias canonicalization |
+| `MilestoneOneAcceptanceTest` | 14 | Original HTTP/database/atomic/idempotency regressions retained |
+| `StartupAcceptanceTest` | 1 | V1-to-V5 upgrade, restart persistence, default read-only and service-level NONE gate |
+| `PurchaseStrategiesAcceptanceTest` | 16 | Healthy pessimistic 50/10, quantities/conservation, scoped retries, conflicts/exhaustion, isolated unsafe races |
+| `RedisAdmissionAcceptanceTest` | 17 | Real Lua, admission/conservation, TTL/epochs, actual Redis stop/restart, unknown-commit fence, compensation and drain controls |
+| `PurchaseCrashAcceptanceTest` | 2 | Parent forcibly terminates an owned Java process before/after commit, starts a fresh process and reconciles durable state |
+
+### Controlled observations
+
+| Scenario | Observed assertion |
+|---|---|
+| ATOMIC_SQL and PESSIMISTIC, 50 distinct buyers / 10 units | Each produces 10 unique unit sales, 40 OUT_OF_STOCK, final stock 0 |
+| REDIS_ASSISTED, 50 distinct buyers / 10 units | 10 unique unit sales, remaining requests ADMISSION_REJECTED, stock/counter 0, no unresolved journal entries |
+| Protected quantity-2 concurrency, starting stock 11 | Nonnegative stock; unique committed sold quantity + final stock = 11 |
+| NONE, 2 buyers each requesting 2 from stock 2; barrier after both checks, repeated 3 times | Each run commits sold quantity 4, stock -2; ledger conservation still equals 2, clearly demonstrating that conservation alone does not establish safety |
+| External SQL changes version after optimistic read | First attempt conflicts; second uses a different transaction ID and new version, then sells |
+| Force a conflict on all 20 optimistic attempts | 20 distinct transaction IDs, GAVE_UP persisted/replayed, stock unchanged, no sale |
+| 20 same-key requests using Redis legacy alias, quantity 2 from stock 10 | One reservation and purchase ID, stock/counter 8; fingerprint conflict rejects a changed quantity |
+| Redis counter falsely reports zero while DB has 3 | ADMISSION_REJECTED, not OUT_OF_STOCK; stable replay after reset; new key can buy |
+| Redis counter inflated to 99 while DB has 1, quantity 2 | PostgreSQL rejects with OUT_OF_STOCK; zero sold quantity; reservation compensated |
+| DB trigger fails after decrement before completing SOLD | Transaction rolls back stock/claim, journal persists and compensation restores counter once |
+| Reserve script repeated / release repeated | No second decrement / no second increment |
+| Real counter expiry before compensation | EXPIRED recorded; counter remains absent, never resurrected |
+| Counter replaced with another epoch before compensation | STALE_EPOCH recorded; replacement stock 99 is not inflated to 101 |
+| Original scoped-key transaction fence still held, no committed row visible | Reconciliation returns bounded 503, leaves PENDING and does not refund; succeeds after fence release |
+| Actual owned Redis process stopped after reservation | Rollback preserves DB stock; failed compensation remains PENDING; Redis inspection says UNAVAILABLE/UNKNOWN; atomic baseline still works; restart + reconciliation resolves the journal |
+| API reset/PATCH/DELETE while purchase paused after reserve | FIXTURE_BUSY; reset succeeds only after the purchase drains |
+| Force Java death after decrement/terminal row update but **before commit** | Restart sees stock 5, zero sold quantity, one PENDING journal; reconciliation releases, same-key retry makes one quantity-2 sale |
+| Force Java death **after commit**, before cleanup/response | Restart sees stock 3, sold quantity 2, one PENDING journal; reconciliation marks COMMITTED without refund; same-key replay preserves purchase ID |
+
+Crash tests run real child JVMs over HTTP with real PostgreSQL/Redis; only the
+pause boundary is test-injected. Crash hook implementations are absent from the
+executable JAR. Child logs, processes and isolated schemas are cleaned up.
+An initial Windows log-handle cleanup race was fixed with bounded deletion
+retry after process exit; the full suite subsequently passed.
+
+The **packaged 0.2.0 app** was also launched and stopped through PowerShell 5.1
+scripts. Each of the five strategies, on separate stock-3 products, committed
+quantity 2, returned stock 1/version 1, and replayed the same purchase ID without
+another decrement. Redis inspection showed counter 1 and no unresolved journal.
+Startup scripts now use the stable `cache-aside-demo.jar` filename rather than
+accidentally launching a previous milestone's versioned JAR. Bash syntax was
+checked. No runtime screenshot or performance benchmark is implied.
+
+### Container evidence and remaining boundaries
+
+Local acceptance used native PostgreSQL plus Redis-in-WSL, **not Testcontainers**.
+There is still no local Docker engine. The
+[CI workflow](../.github/workflows/verify.yml) defaults to real digest-pinned
+PostgreSQL **and Redis** containers, including the same crash suite; its release
+result is visible in [GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions).
+This record is written before push and does not invent a later CI result.
+Milestone-1 Docker acceptance already passed in
+[run 37196941718](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37196941718).
+
+Product caching, listener/recovery breakers, rate limiting, persisted experiments,
+dashboard/browser tests, full Compose walkthrough and benchmarks retain their
+later milestone gates. These are small correctness checks, not capacity or SLA
+measurements. The ledger/reservation journal survives process crashes; persisted
+experiment-run reporting is not implemented until milestone 4.
+
+---
+
+# Milestone 1 evidence (historical)
 
 Recorded **2026-10-04**, before the first milestone push. This is evidence for
 the authoritative database slice only, not completion of the whole project.
@@ -91,7 +177,7 @@ Observed integration issues were fixed, not hidden:
 
 ## Explicitly blocked / not claimed
 
-**This author machine has no Docker engine or installed WSL distribution.**
+**At milestone 1, this author machine had no Docker engine or installed WSL distribution.**
 The default container-backed integration command was run without the native
 override and failed with **"Could not find a valid Docker environment"**.
 That failure was verified as a prerequisite failure, not marked skipped or passed.

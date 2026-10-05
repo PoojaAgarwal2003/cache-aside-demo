@@ -1,8 +1,9 @@
 # Architecture: delivered slice and future boundaries
 
 **One host application instance, one dedicated PostgreSQL database, one Redis
-service.** Milestone 1 implements only the database-backed vertical slice.
-Redis is configured in Compose but is not consulted by the current API.
+service.** Milestone 2 implements five purchase strategies, one durable ledger/
+idempotency boundary and advisory Redis admission. Product reads still query
+PostgreSQL directly; the cache/listener/breakers arrive in milestone 3.
 
 ```mermaid
 flowchart LR
@@ -11,9 +12,12 @@ flowchart LR
     Boundary --> Purchase[Purchase API: JdbcTemplate]
     Products --> DB[(PostgreSQL)]
     Purchase --> DB
+    Purchase --> Admission[Redis admission plus durable journal]
+    Admission --> Redis[(Redis: advisory counter)]
+    Admission --> DB
     DB --> Version[BEFORE UPDATE version trigger]
     DB --> Notify[Committed NOTIFY hint]
-    Notify -. listener in milestone 3 .-> Redis[(Redis: not active in milestone 1)]
+    Notify -. listener in milestone 3 .-> Cache[Future product cache]
 ```
 
 ## Product path
@@ -50,13 +54,15 @@ sequenceDiagram
     participant PostgreSQL
     Client->>API: POST purchase + client/key
     API->>API: Validate / canonical fingerprint / hash key
+    API->>API: Fixture read guard and permanent UNSAFE/PROTECTED classification
     API->>PostgreSQL: Begin bounded READ COMMITTED transaction
+    API->>PostgreSQL: Scoped-key advisory transaction lock
     API->>PostgreSQL: INSERT unique scoped claim ON CONFLICT DO NOTHING
     alt Existing committed claim
         PostgreSQL-->>API: Original outcome or fingerprint conflict
     else New claim
-        API->>API: Explicit synthetic work delay
-        API->>PostgreSQL: UPDATE stock WHERE stock >= quantity RETURNING stock,version
+        API->>API: Selected strategy's check / work / inventory decision
+        API->>PostgreSQL: UPDATE stock RETURNING stock,version
         API->>PostgreSQL: Complete request result and SOLD ledger row
     end
     API->>PostgreSQL: Commit (deferred terminal-claim check)
@@ -70,6 +76,46 @@ A uniqueness constraint prevents duplicate claims. Claim contention waits for
 the transaction, not an application-memory map. Failed transactions remove the
 claim and inventory change together. Unknown commit outcomes return a retryable
 error; repeating the same scoped key resolves what actually committed.
+
+PESSIMISTIC locks the product before checking stock. OPTIMISTIC's version conflict
+rolls back the entire attempt before a fresh transaction reacquires the claim;
+the twentieth failed conditional update persists GAVE_UP. NONE deliberately
+checks without a product lock then decrements without a stock predicate. Its
+fixture classification commits **before** this work, so it does not accidentally
+serialize the unsafe race. ATOMIC_SQL remains the default baseline.
+
+## Redis admission and reconciliation
+
+```mermaid
+sequenceDiagram
+    participant API
+    participant PostgreSQL
+    participant Redis
+    API->>PostgreSQL: Acquire scoped idempotency claim
+    API->>PostgreSQL: Independently commit PENDING reservation journal
+    API->>Redis: Lua reserve UUID + epoch + quantity
+    alt Admitted
+        API->>PostgreSQL: Conditional decrement + SOLD result, same transaction
+        API->>PostgreSQL: Commit
+    else Declined
+        API->>PostgreSQL: Commit stable ADMISSION_REJECTED
+    end
+    API->>PostgreSQL: Fresh resolution transaction, same scoped-key lock
+    API->>PostgreSQL: Read committed result and exact reservation UUID
+    alt Matching committed SOLD
+        API->>PostgreSQL: Mark journal COMMITTED, never refund
+    else Proven not committed
+        API->>Redis: Idempotent release, only if original epoch still exists
+        API->>PostgreSQL: Persist release / expiry / stale-epoch resolution
+    end
+```
+
+If DB resolution is unavailable or the original transaction cannot yet be
+fenced, leave PENDING. Only drained reconciliation may rebuild the counter from
+locked DB stock with a fresh epoch. Startup, outside writes and other strategies
+distrust the advisory epoch. The bounded local fixture guard covers API admin
+transactions through commit; it is not multi-instance orchestration. See
+[stock-admission.md](stock-admission.md) for Lua states and drift limitations.
 
 ## Later cache/recovery work (not implemented yet)
 
@@ -89,10 +135,15 @@ not current capabilities.
 | Product schema, version and committed notifications | `db/migration/V1__authoritative_products.sql` |
 | Request uniqueness and terminal ledger | `db/migration/V2__purchase_requests_and_ledger.sql` |
 | Product DTOs, validation, optimistic CRUD | `product/` |
-| Atomic purchase and replay boundary | `purchase/PurchaseService.java` |
+| Shared five-strategy purchase/replay boundary | `purchase/PurchaseService.java`, `InventoryStrategies.java` |
+| Unsafe fixture isolation and local drain guard | `purchase/PurchaseFixturePolicy.java`, `FixtureActivity.java` |
+| Advisory Redis gate, journal and reconciliation | `purchase/StockAdmissionService.java`, `RedisStockClient.java`, `redis/*.lua`, migration V5 |
 | Canonical identity/fingerprint | `purchase/PurchaseRequest.java` |
 | Request safety, tracing and error mapping | `web/` |
 | Database/HTTP concurrency and rollback evidence | `MilestoneOneAcceptanceTest.java` |
+| Protected/unsafe race evidence | `PurchaseStrategiesAcceptanceTest.java` |
+| Lua, actual Redis outage, epoch and compensation evidence | `RedisAdmissionAcceptanceTest.java` |
+| Forced Java process death before/after commit | `PurchaseCrashAcceptanceTest.java`, test-only `PurchaseCrashChild.java` |
 | Upgrade/restart and default read-only mode | `StartupAcceptanceTest.java` |
 | PowerShell-first operation | `scripts/` |
 

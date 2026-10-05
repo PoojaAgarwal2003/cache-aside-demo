@@ -100,6 +100,7 @@ public class PurchaseService {
         if (completed != 1) {
             throw new IllegalStateException("Owned purchase claim disappeared before completion.");
         }
+        strategies.beforeCommit(request, purchaseId);
         return new PurchaseDecision(outcome, request.strategy(), request.productId(), request.quantity(),
                 stock == null ? null : stock.quantity(), stock == null ? null : stock.version(),
                 attempt, purchaseId, requestId, false);

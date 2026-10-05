@@ -122,6 +122,10 @@ public class InventoryStrategies {
         probe.afterCommit(request, purchaseId);
     }
 
+    void beforeCommit(PurchaseRequest request, java.util.UUID purchaseId) {
+        probe.beforeCommit(request, purchaseId);
+    }
+
     record Stock(int quantity, long version) { }
 
     record Decision(PurchaseDecision.Outcome outcome, Stock stock) {
