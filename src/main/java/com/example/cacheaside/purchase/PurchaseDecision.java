@@ -8,6 +8,7 @@ public record PurchaseDecision(Outcome outcome, String strategy, long productId,
     public enum Outcome {
         SOLD(200, "Inventory decrement and ledger entry committed."),
         OUT_OF_STOCK(409, "Insufficient stock at the database decision."),
+        GAVE_UP(409, "Optimistic conflicts exhausted the bounded attempts; stock may remain."),
         NOT_FOUND(404, "Product not found at the database decision.");
 
         private final int status;

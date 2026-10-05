@@ -37,9 +37,20 @@ class PurchaseRequestTest {
             assertThatThrownBy(() -> PurchaseRequest.parse(1, null, null, null, invalid))
                     .isInstanceOf(ApiException.class);
         }
+
         assertThatThrownBy(() -> PurchaseRequest.parse(1, null, "NONE", null, "key"))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> PurchaseRequest.parse(0, null, null, null, "key"))
                 .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    void strategyIsCanonicalAndPartOfTheFingerprint() {
+        var optimistic = PurchaseRequest.parse(1, null, "optimistic", null, "key");
+        assertThat(optimistic.strategy()).isEqualTo("OPTIMISTIC");
+        assertThat(optimistic.fingerprint()).isEqualTo(
+                PurchaseRequest.parse(1, null, "OPTIMISTIC", null, "key").fingerprint());
+        assertThat(optimistic.fingerprint()).isNotEqualTo(
+                PurchaseRequest.parse(1, null, "PESSIMISTIC", null, "key").fingerprint());
     }
 }

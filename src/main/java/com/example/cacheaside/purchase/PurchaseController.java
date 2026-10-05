@@ -31,7 +31,7 @@ public class PurchaseController {
         UUID requestId = UUID.fromString(MDC.get("requestId"));
         var result = service.purchase(request, requestId);
         var response = new PurchaseResponse(result.outcome().name(), result.outcome().message(),
-                false, result.strategy(), "PostgreSQL conditional UPDATE is the inventory authority.",
+                false, result.strategy(), PurchaseStrategy.resolve(result.strategy()).meaning(),
                 result.productId(), result.quantity(), result.stockLeft(), result.version(),
                 result.attempts(), requestId, result.originalRequestId(), result.purchaseId(),
                 (System.nanoTime() - started) / 1_000_000.0, result.replayed());

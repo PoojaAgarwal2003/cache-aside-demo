@@ -5,7 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
-import java.util.Locale;
 import tools.jackson.databind.JsonNode;
 
 public record PurchaseRequest(long productId, int quantity, String strategy,
@@ -15,10 +14,7 @@ public record PurchaseRequest(long productId, int quantity, String strategy,
         if (id <= 0) {
             throw ApiException.invalid("Product id must be positive.");
         }
-        String resolved = strategy == null ? "ATOMIC_SQL" : strategy.toUpperCase(Locale.ROOT);
-        if (!"ATOMIC_SQL".equals(resolved)) {
-            throw ApiException.invalid("Milestone 1 implements only ATOMIC_SQL.");
-        }
+        String resolved = PurchaseStrategy.resolve(strategy).name();
         String identity = client == null ? "local" : client;
         if (!identity.matches("[A-Za-z0-9._-]{1,64}")) {
             throw ApiException.invalid("X-Client-Id must be 1-64 safe ASCII characters.");

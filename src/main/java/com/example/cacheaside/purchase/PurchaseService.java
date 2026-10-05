@@ -2,9 +2,9 @@ package com.example.cacheaside.purchase;
 
 import com.example.cacheaside.product.ProductService;
 import com.example.cacheaside.web.ApiException;
-import com.example.cacheaside.web.LabProperties;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -16,23 +16,35 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class PurchaseService {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate transaction;
-    private final LabProperties properties;
+    private final InventoryStrategies strategies;
 
-    public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, LabProperties properties) {
+    public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies) {
         this.jdbc = jdbc;
-        this.properties = properties;
+        this.strategies = strategies;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         transaction.setTimeout(8);
     }
 
     public PurchaseDecision purchase(PurchaseRequest request, UUID requestId) {
         // execute() returns only after commit. Unknown commit failures escape as
         // retryable errors; a retry resolves the persisted key, never refunds.
-        return Objects.requireNonNull(transaction.execute(status -> execute(request, requestId)));
+        for (int attempt = 1; attempt <= 20; attempt++) {
+            int current = attempt;
+            try {
+                var result = Objects.requireNonNull(transaction.execute(status -> execute(request, requestId, current)));
+                strategies.afterCommit(request, result.purchaseId());
+                return result;
+            } catch (OptimisticRetry conflict) {
+                // The whole attempt (including the claim) has rolled back before retry.
+                ProductService.delay(ThreadLocalRandom.current().nextInt(1, 6));
+            }
+        }
+        throw new IllegalStateException("The final attempt must persist GAVE_UP.");
     }
 
-    private PurchaseDecision execute(PurchaseRequest request, UUID requestId) {
+    private PurchaseDecision execute(PurchaseRequest request, UUID requestId, int attempt) {
         jdbc.execute("SET LOCAL lock_timeout = '2s'");
         jdbc.execute("SET LOCAL statement_timeout = '5s'");
         int claimed = jdbc.update("""
@@ -47,37 +59,25 @@ public class PurchaseService {
             return replay(request);
         }
 
-        ProductService.delay(properties.purchaseDelayMs());
-        var updates = jdbc.query("""
-                UPDATE products SET stock=stock-?
-                WHERE id=? AND stock>=?
-                RETURNING stock, version
-                """, (row, index) -> new Stock(row.getInt("stock"), row.getLong("version")),
-                request.quantity(), request.productId(), request.quantity());
-
-        PurchaseDecision.Outcome outcome;
-        Stock stock = updates.isEmpty() ? null : updates.get(0);
-        UUID purchaseId = null;
-        if (stock != null) {
-            outcome = PurchaseDecision.Outcome.SOLD;
-            purchaseId = UUID.randomUUID();
-        } else {
-            boolean exists = Boolean.TRUE.equals(jdbc.queryForObject(
-                    "SELECT EXISTS(SELECT 1 FROM products WHERE id=?)", Boolean.class, request.productId()));
-            outcome = exists ? PurchaseDecision.Outcome.OUT_OF_STOCK : PurchaseDecision.Outcome.NOT_FOUND;
+        var decision = strategies.decide(request, attempt);
+        if (decision.outcome() == PurchaseDecision.Outcome.GAVE_UP && attempt < 20) {
+            throw new OptimisticRetry();
         }
+        var stock = decision.stock();
+        var outcome = decision.outcome();
+        UUID purchaseId = outcome == PurchaseDecision.Outcome.SOLD ? UUID.randomUUID() : null;
         int completed = jdbc.update("""
                 UPDATE purchase_requests
-                SET outcome=?,stock_left=?,product_version=?,purchase_id=?,completed_at=clock_timestamp()
+                SET outcome=?,stock_left=?,product_version=?,purchase_id=?,attempts=?,completed_at=clock_timestamp()
                 WHERE client_id=? AND key_hash=?
                 """, outcome.name(), stock == null ? null : stock.quantity(),
-                stock == null ? null : stock.version(), purchaseId, request.clientId(), request.keyHash());
+                stock == null ? null : stock.version(), purchaseId, attempt, request.clientId(), request.keyHash());
         if (completed != 1) {
             throw new IllegalStateException("Owned purchase claim disappeared before completion.");
         }
         return new PurchaseDecision(outcome, request.strategy(), request.productId(), request.quantity(),
                 stock == null ? null : stock.quantity(), stock == null ? null : stock.version(),
-                1, purchaseId, requestId, false);
+                attempt, purchaseId, requestId, false);
     }
 
     private PurchaseDecision replay(PurchaseRequest request) {
@@ -96,6 +96,6 @@ public class PurchaseService {
         }, request.clientId(), request.keyHash());
     }
 
-    private record Stock(int quantity, long version) {
+    private static final class OptimisticRetry extends RuntimeException {
     }
 }

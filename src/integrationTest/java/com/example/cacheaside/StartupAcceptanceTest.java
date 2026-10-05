@@ -39,7 +39,7 @@ class StartupAcceptanceTest {
                 var jdbc = first.getBean(JdbcTemplate.class);
                 assertThat(jdbc.queryForObject("SELECT count(*) FROM products", Integer.class)).isEqualTo(1);
                 assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success AND type='SQL'",
-                        Integer.class)).isEqualTo(2);
+                        Integer.class)).isEqualTo(3);
                 var sale = http.send(purchase(first, id), HttpResponse.BodyHandlers.ofString());
                 assertThat(sale.statusCode()).isEqualTo(200);
                 purchaseId = json.readTree(sale.body()).get("purchaseId").asString();

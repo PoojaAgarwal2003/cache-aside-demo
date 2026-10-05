@@ -42,13 +42,16 @@ There is **no automatic fixture seed**. Creates, edits and deletes survive
 restart. Later guided scenarios will use explicit per-run isolated fixtures;
 migrations never restore Laptop/Keyboard/Monitor over user edits.
 
-## Atomic purchases and retries
+## Purchases and retries
 
 `POST /products/{id}/purchase?strategy=ATOMIC_SQL` accepts `{"quantity":1}`.
 The omitted body defaults to 1; null, missing quantity in an object, fractions,
 numeric strings and quantities outside 1-1000 are invalid. ATOMIC_SQL is the
-default and the only implemented strategy in milestone 1; other strategies
-return 400 rather than silently substituting one.
+default. PESSIMISTIC holds a database row lock across check/work/decrement.
+OPTIMISTIC reads stock/version, checks both in the UPDATE, and retries conflicts
+in a fresh transaction (including a fresh idempotency claim), at most 20 attempts
+with 1-5ms jitter. Exhaustion persists 409 GAVE_UP, never OUT_OF_STOCK.
+Unknown strategies return 400 rather than silently substituting one.
 
 **Idempotency-Key is required:** 1-128 ASCII letters, digits, `.`, `_`, `:` or
 `-`. Keys are scoped to `X-Client-Id` (1-64 safe ASCII characters, default
@@ -71,7 +74,7 @@ The database's deferred constraint prevents accidentally committing an unfinishe
 claim. `purchase_ledger` is a view of committed SOLD request rows, not a second
 independently written ledger. Product deletion never cascades into history.
 
-200 SOLD, 409 OUT_OF_STOCK and 404 NOT_FOUND are stable terminal outcomes.
+200 SOLD, 409 OUT_OF_STOCK/GAVE_UP and 404 NOT_FOUND are stable terminal outcomes.
 An out-of-stock replay remains out-of-stock even after an administrative refill;
 a new logical purchase needs a new key. A replay preserves the original
 `purchaseId`, stock/version snapshot, attempts and `originalRequestId`; its
