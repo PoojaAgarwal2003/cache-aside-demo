@@ -22,9 +22,11 @@ public class CacheController {
     private final LabProperties properties;
     private final RedisAccess access;
     private final RateLimiter limiter;
+    private final com.example.cacheaside.demo.RunGuard runs;
 
     public CacheController(CacheCoordinator coordinator, ProductCacheClient cache, ProductReadService reads,
-                           DbChangeListener listener, LabProperties properties, RedisAccess access, RateLimiter limiter) {
+                           DbChangeListener listener, LabProperties properties, RedisAccess access, RateLimiter limiter,
+                           com.example.cacheaside.demo.RunGuard runs) {
         this.coordinator = coordinator;
         this.cache = cache;
         this.reads = reads;
@@ -32,6 +34,7 @@ public class CacheController {
         this.properties = properties;
         this.access = access;
         this.limiter = limiter;
+        this.runs = runs;
     }
 
     @GetMapping("/status")
@@ -52,6 +55,7 @@ public class CacheController {
     @DeleteMapping("/products/{id}")
     public Map<String, String> invalidate(@PathVariable @Positive long id) {
         requireDemo();
+        runs.check(id);
         if (!coordinator.invalidate(id)) {
             throw ApiException.unavailable("CACHE_BYPASSED", "Invalidation is not confirmed; product cache is bypassed.");
         }
@@ -61,6 +65,7 @@ public class CacheController {
     @DeleteMapping("/products")
     public Map<String, Object> clear() {
         requireDemo();
+        runs.checkClear();
         return Map.of("result", "INVALIDATED_NAMESPACE", "productCache", coordinator.rotate());
     }
 

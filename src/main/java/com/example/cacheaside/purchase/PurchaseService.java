@@ -22,16 +22,18 @@ public class PurchaseService {
     private final FixtureActivity activity;
     private final StockAdmissionService admission;
     private final CacheInvalidation invalidation;
+    private final com.example.cacheaside.demo.RunGuard runs;
 
     public PurchaseService(JdbcTemplate jdbc, PlatformTransactionManager manager, InventoryStrategies strategies,
                            PurchaseFixturePolicy fixtures, FixtureActivity activity, StockAdmissionService admission,
-                           CacheInvalidation invalidation) {
+                           CacheInvalidation invalidation, com.example.cacheaside.demo.RunGuard runs) {
         this.jdbc = jdbc;
         this.strategies = strategies;
         this.fixtures = fixtures;
         this.activity = activity;
         this.admission = admission;
         this.invalidation = invalidation;
+        this.runs = runs;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -58,6 +60,7 @@ public class PurchaseService {
         // execute() returns only after commit. Unknown commit failures escape as
         // retryable errors; a retry resolves the persisted key, never refunds.
         for (int attempt = 1; attempt <= 20; attempt++) {
+            runs.checkDeadline();
             int current = attempt;
             try {
                 var result = Objects.requireNonNull(transaction.execute(status -> execute(request, requestId, current)));

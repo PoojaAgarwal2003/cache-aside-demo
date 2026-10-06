@@ -17,18 +17,22 @@ public class ProductService {
     private final Validator validator;
     private final LabProperties properties;
     private final CacheInvalidation invalidation;
+    private final com.example.cacheaside.demo.RunGuard runs;
 
     public ProductService(ProductRepository repository, EntityManager entityManager,
-                          Validator validator, LabProperties properties, CacheInvalidation invalidation) {
+                          Validator validator, LabProperties properties, CacheInvalidation invalidation,
+                          com.example.cacheaside.demo.RunGuard runs) {
         this.repository = repository;
         this.entityManager = entityManager;
         this.validator = validator;
         this.properties = properties;
         this.invalidation = invalidation;
+        this.runs = runs;
     }
 
     @Transactional(readOnly = true, timeout = 6)
     public Optional<ProductView> find(long id) {
+        runs.check(id);
         delay(properties.readDelayMs());
         return repository.findById(id).map(Product::view);
     }
@@ -44,6 +48,7 @@ public class ProductService {
 
     @Transactional
     public ProductView update(long id, JsonNode body) {
+        runs.check(id);
         var product = repository.findById(id).orElseThrow(ApiException::notFound);
         product.update(validated(ProductInput.parse(body, product.view())));
         repository.flush();
@@ -55,6 +60,7 @@ public class ProductService {
 
     @Transactional
     public void delete(long id) {
+        runs.check(id);
         var product = repository.findById(id).orElseThrow(ApiException::notFound);
         repository.delete(product);
         repository.flush();

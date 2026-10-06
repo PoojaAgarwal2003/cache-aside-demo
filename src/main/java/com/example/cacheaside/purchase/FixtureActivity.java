@@ -10,19 +10,24 @@ import org.springframework.stereotype.Component;
 /** Bounded single-instance drain guard; stripe collisions conservatively reject work. */
 @Component
 public class FixtureActivity {
+    private final com.example.cacheaside.demo.RunGuard runs;
     private final ReentrantReadWriteLock[] locks = new ReentrantReadWriteLock[256];
 
-    public FixtureActivity() {
+    public FixtureActivity(com.example.cacheaside.demo.RunGuard runs) {
+        this.runs = runs;
         for (int index = 0; index < locks.length; index++) {
             locks[index] = new ReentrantReadWriteLock();
         }
     }
 
     public <T> T purchase(long productId, Supplier<T> work) {
+        runs.check(productId);
+        runs.checkDeadline();
         return guarded(lock(productId).readLock(), work);
     }
 
     public <T> T maintenance(long productId, Supplier<T> work) {
+        runs.check(productId);
         return guarded(lock(productId).writeLock(), work);
     }
 

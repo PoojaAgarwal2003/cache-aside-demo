@@ -34,15 +34,17 @@ public class ProductReadService {
     private final CacheReadProperties properties;
     private final LabProperties lab;
     private final Semaphore database;
+    private final com.example.cacheaside.demo.RunGuard runs;
 
     public ProductReadService(ProductService products, ProductCacheClient cache, CacheCoordinator coordinator,
                               ObjectProvider<CacheProbe> probes, Environment environment,
-                              CacheReadProperties properties, LabProperties lab) {
+                              CacheReadProperties properties, LabProperties lab, com.example.cacheaside.demo.RunGuard runs) {
         this.products = products;
         this.cache = cache;
         this.coordinator = coordinator;
         this.properties = properties;
         this.lab = lab;
+        this.runs = runs;
         database = new Semaphore(properties.databasePermits(), true);
         probe = environment.acceptsProfiles(Profiles.of("test"))
                 ? probes.getIfAvailable(() -> new CacheProbe() { }) : new CacheProbe() { };
@@ -53,6 +55,8 @@ public class ProductReadService {
     }
 
     public ProductRead read(long id, boolean protection) {
+        runs.check(id);
+        runs.checkDeadline();
         if (!protection && !lab.demoEnabled()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "DEMO_DISABLED",
                     "Disabling stampede protection requires demo mode.", false);
