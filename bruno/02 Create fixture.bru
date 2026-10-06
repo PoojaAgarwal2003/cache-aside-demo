@@ -1,0 +1,23 @@
+meta {
+  name: Create fixture
+  type: http
+  seq: 2
+}
+post {
+  url: {{baseUrl}}/products
+  body: json
+  auth: none
+}
+body:json {
+  {"name":"Bruno isolated fixture","price":12.50,"stock":10}
+}
+script:post-response {
+  bru.setVar("productId", res.body.id);
+}
+tests {
+  test("fresh product", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.stock).to.equal(10);
+    expect(res.body.id).to.be.a("number");
+  });
+}

@@ -1,0 +1,23 @@
+meta {
+  name: Conflicting replay
+  type: http
+  seq: 9
+}
+post {
+  url: {{baseUrl}}/products/{{productId}}/purchase?strategy=ATOMIC_SQL
+  body: json
+  auth: none
+}
+headers {
+  X-Client-Id: {{purchaseClient}}
+  Idempotency-Key: {{purchaseKey}}
+}
+body:json {
+  {"quantity":1}
+}
+tests {
+  test("same key different payload is an explicit conflict", function () {
+    expect(res.status).to.equal(409);
+    expect(res.body.code).to.equal("IDEMPOTENCY_CONFLICT");
+  });
+}

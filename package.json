@@ -9,7 +9,7 @@
   "scripts": {
     "test": "node --test tests/unit/*.test.mjs",
     "test:browser": "playwright test",
-    "test:api": "bru run --env Local --sandbox=safe"
+    "test:api": "cd bruno && bru run --env Local --sandbox=safe --bail --noproxy"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

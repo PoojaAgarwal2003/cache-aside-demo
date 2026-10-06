@@ -1,0 +1,30 @@
+meta {
+  name: Quantity purchase
+  type: http
+  seq: 7
+}
+post {
+  url: {{baseUrl}}/products/{{productId}}/purchase?strategy=ATOMIC_SQL
+  body: json
+  auth: none
+}
+headers {
+  X-Client-Id: {{purchaseClient}}
+  Idempotency-Key: {{purchaseKey}}
+}
+body:json {
+  {"quantity":2}
+}
+script:post-response {
+  bru.setVar("purchaseId", res.body.purchaseId);
+  bru.setVar("originalRequestId", res.body.originalRequestId);
+}
+tests {
+  test("one sale commits two units", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.code).to.equal("SOLD");
+    expect(res.body.quantity).to.equal(2);
+    expect(res.body.stockLeft).to.equal(8);
+    expect(res.body.replayed).to.equal(false);
+  });
+}

@@ -12,9 +12,9 @@ idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
 The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
 drain/cancellation, ledger reconciliation, six guided scenarios and JSON export.
-**Milestone 5 is in progress:** a local-asset dashboard now starts real runs,
-shows live/final ledger evidence and exports persisted results. Guided views
-and full browser coverage follow in the next two commits.
+**Milestone 5 is in progress:** the local-asset dashboard, six guided views,
+five-way comparison and asserted Bruno collection are implemented. The final
+browser failure/accessibility gate and publication follow in the third commit.
 [The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
@@ -25,6 +25,7 @@ is the full target, not a list of already implemented features.
 
 After starting the app, open `http://127.0.0.1:8080/` (or your configured port).
 [Dashboard guide](docs/dashboard.md)
+| [Bruno API walkthrough](docs/bruno.md)
 
 ```powershell
 # With the demo app running in another terminal:

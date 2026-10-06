@@ -1,0 +1,18 @@
+meta {
+  name: Diagnostics
+  type: http
+  seq: 10
+}
+get {
+  url: {{baseUrl}}/cache/status
+  body: none
+  auth: none
+}
+tests {
+  test("actual readiness and independent breaker diagnostics", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.productCache.readiness).to.equal("READY");
+    expect(res.body.breakers).to.be.an("object");
+    expect(res.body.listener).to.be.an("object");
+  });
+}

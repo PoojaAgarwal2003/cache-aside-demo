@@ -1,0 +1,22 @@
+meta {
+  name: Status
+  type: http
+  seq: 1
+}
+get {
+  url: {{baseUrl}}/status
+  body: none
+  auth: none
+}
+script:post-response {
+  bru.setVar("purchaseClient", "bruno-purchase-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+  bru.setVar("purchaseKey", "bruno-key-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+}
+tests {
+  test("explicit demo profile and real dependencies ready", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.mutationsEnabled).to.equal(true);
+    expect(res.body.database).to.equal("AVAILABLE");
+    expect(res.body.cache).to.equal("READY");
+  });
+}

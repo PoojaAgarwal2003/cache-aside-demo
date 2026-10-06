@@ -1,0 +1,25 @@
+meta {
+  name: PATCH partial
+  type: http
+  seq: 5
+}
+patch {
+  url: {{baseUrl}}/products/{{productId}}
+  body: json
+  auth: none
+}
+body:json {
+  {"name":"Patched by Bruno"}
+}
+script:post-response {
+  bru.setVar("patchedVersion", res.body.version);
+}
+tests {
+  test("partial PATCH preserves omitted stock and price", function () {
+    expect(bru.getVar("warmObserved")).to.equal(true);
+    expect(res.status).to.equal(200);
+    expect(res.body.name).to.equal("Patched by Bruno");
+    expect(res.body.stock).to.equal(10);
+    expect(res.body.price).to.equal(12.5);
+  });
+}

@@ -1,0 +1,20 @@
+meta {
+  name: Export ledger evidence
+  type: http
+  seq: 13
+}
+get {
+  url: {{baseUrl}}/demo/runs/{{runId}}/export
+  body: none
+  auth: none
+}
+tests {
+  test("durable final result separates responses, sales, quantities and conservation", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.schemaVersion).to.equal(1);
+    expect(res.body.run.result.uniqueSales).to.equal(3);
+    expect(res.body.run.result.cases[0].conservation).to.equal(true);
+    expect(res.body.run.result.cases[0].finalStock).to.equal(0);
+    expect(res.body.attempts.length).to.equal(5);
+  });
+}

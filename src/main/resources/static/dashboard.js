@@ -1,4 +1,5 @@
 import { appendEvents, latency, number, runWarning, sqlWork, sum, UUID } from './dashboard-model.js';
+import { guides, guideParameters, observationText } from './dashboard-guides.js';
 
 const $ = id => document.getElementById(id);
 const text = (id, value) => { if ($(id).textContent !== String(value)) $(id).textContent = value; };
@@ -41,6 +42,7 @@ function selectRun(id, updateUrl = true) {
   state.attempts = []; state.casesKey = ''; state.historyKey = '';
   $('events').replaceChildren(); $('request-select').replaceChildren(); $('request-select').disabled = true;
   text('event-count', '0 retained here'); notice('event-gap', ''); notice('action-error', ''); notice('run-warning', '');
+  notice('scenario-explanation', '');
   text('run-title', 'Loading persisted experiment'); text('run-state', 'Loading authoritative snapshot...');
   text('run-identity', id); text('request-flow', 'Select an HTTP event or load request details.');
   text('request-details', 'No request selected.'); text('result-json', 'Loading...');
@@ -63,6 +65,7 @@ function renderRun(run) {
   text('run-meaning', run.active ? 'Live SQL observations are not an atomic final verdict. Cancellation seals dispatch, then drains accepted work.'
     : `${result?.completion ?? 'Completion unavailable'}; ${result?.verificationMeaning ?? run.error ?? 'See persisted evidence below.'}`);
   notice('run-warning', runWarning(run));
+  notice('scenario-explanation', observationText(run));
   text('sales', number(rows ? sum(rows, 'uniqueSales') : null));
   text('quantity-total', rows ? `${number(sum(rows, 'soldQuantity'))} committed units (quantity matters)` : 'No ledger totals available');
   const stock = rows ? sum(rows, result?.cases ? 'finalStock' : 'stock') : null;
@@ -93,7 +96,7 @@ function renderCases(run) {
     const tr = document.createElement('tr');
     const work = sqlWork(run.result.caseDatabaseWork?.[entry.caseIndex]);
     const values = [`${entry.label} / ${entry.strategy}${entry.unsafeStrategy ? ' (UNSAFE)' : ''}`, entry.inventoryVerdict,
-      `${number(entry.http.attempts)} measured / ${number(run.parameters.buyers)} buyers`,
+      `${number(entry.http.buyersDispatched)} / ${number(run.parameters.buyers)} buyers dispatched; ${number(entry.http.attempts)} attempts; run ${run.state}`,
       `${number(entry.uniqueSales)} / ${number(entry.soldQuantity)}`, number(entry.finalStock),
       number(entry.http.errorsOrUnknown), number(work?.calls), `${number(entry.http.measurementWindowMs, 1)}ms`,
       number(entry.http.httpAttemptsPerSecond, 2), latency(entry.http.allAttemptLatency), latency(entry.http.successLatency)];
@@ -241,6 +244,34 @@ async function start(parameters) {
   $('run-state').scrollIntoView({ block: 'nearest' });
 }
 
+function fixedShape() {
+  const guide = guides.find(item => item.scenario === $('scenario').value);
+  const fixed = guide && ['COLD_WARM', 'STALE_FILL', 'OUTAGE', 'LOST_RESPONSE'].includes(guide.scenario);
+  for (const name of ['buyers', 'concurrency']) {
+    const input = $('run-form').elements.namedItem(name);
+    input.readOnly = Boolean(fixed);
+    if (fixed) input.value = guide[name];
+  }
+}
+for (const guide of guides) {
+  const card = document.createElement('article'); card.className = 'guide';
+  const heading = document.createElement('h3'); heading.textContent = guide.title;
+  const setup = document.createElement('p'); setup.textContent = guide.setup;
+  const expected = document.createElement('p'); expected.textContent = guide.expected;
+  const button = document.createElement('button'); button.type = 'button'; button.dataset.scenario = guide.scenario;
+  button.textContent = guide.button; button.disabled = true;
+  button.addEventListener('click', () => {
+    const value = guideParameters(guide);
+    for (const [key, field] of Object.entries(value)) {
+      const input = $('run-form').elements.namedItem(key);
+      if (input.type === 'checkbox') input.checked = field; else input.value = field;
+    }
+    fixedShape(); $('unsafe-warning').hidden = true;
+    action(() => start(value));
+  });
+  card.append(heading, setup, expected, button); $('scenario-cards').append(card);
+}
+$('scenario').addEventListener('change', fixedShape);
 $('run-form').addEventListener('submit', event => {
   event.preventDefault();
   // Read form values before disabling the fieldset for the mutation.

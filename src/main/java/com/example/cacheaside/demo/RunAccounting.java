@@ -132,6 +132,8 @@ public class RunAccounting {
         }).count();
         var result = new LinkedHashMap<String, Object>();
         result.put("attempts", measured.size()); result.put("responses", responses);
+        result.put("buyersDispatched", measured.stream().filter(a -> "MEASURED".equals(a.get("phase")))
+                .map(a -> a.get("caseIndex") + ":" + a.get("buyer")).distinct().count());
         result.put("successfulResponses", success.size()); result.put("businessRejections", businessRejections);
         result.put("errorsOrUnknown", measured.size() - success.size() - businessRejections);
         result.put("terminalReadSources", classifications(measured, "source"));

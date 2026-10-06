@@ -1,0 +1,15 @@
+meta {
+  name: Delete fixture
+  type: http
+  seq: 18
+}
+delete {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: none
+}
+tests {
+  test("only the collection-owned mutable fixture is deleted", function () {
+    expect(res.status).to.equal(204);
+  });
+}

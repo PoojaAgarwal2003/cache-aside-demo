@@ -1,0 +1,25 @@
+meta {
+  name: Warm read
+  type: http
+  seq: 4
+}
+get {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: none
+}
+script:post-response {
+  bru.setVar("warmObserved", res.status === 200 && res.body.source.startsWith("REDIS_CACHE"));
+  if (res.status === 200 && !res.body.source.startsWith("REDIS_CACHE")) {
+    if (Date.now() >= bru.getVar("warmDeadline")) throw new Error("Cache did not warm within 10 seconds.");
+    await bru.sleep(150);
+    bru.runner.setNextRequest("Warm read");
+  }
+}
+tests {
+  test("warm lookup retains authoritative payload", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.data.stock).to.equal(10);
+    expect(res.body.data.id).to.equal(bru.getVar("productId"));
+  });
+}

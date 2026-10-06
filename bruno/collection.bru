@@ -1,0 +1,19 @@
+script:pre-request {
+  const base = bru.getEnvVar("baseUrl");
+  if (!/^http:\/\/(127\.0\.0\.1|localhost):[0-9]{1,5}$/.test(base)) {
+    throw new Error("Use this lab's explicit loopback baseUrl, without a trailing slash.");
+  }
+  req.setTimeout(8000);
+  req.setMaxRedirects(0);
+  req.setHeader("Origin", base);
+  if (!req.getHeader("X-Client-Id")) {
+    req.setHeader("X-Client-Id", "bruno-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+  }
+}
+
+tests {
+  test("request is correlated and not cached", function () {
+    expect(res.getHeader("x-request-id")).to.be.a("string");
+    expect(res.getHeader("cache-control")).to.include("no-store");
+  });
+}

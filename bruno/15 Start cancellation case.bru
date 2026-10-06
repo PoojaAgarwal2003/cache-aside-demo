@@ -1,0 +1,23 @@
+meta {
+  name: Start cancellation case
+  type: http
+  seq: 15
+}
+post {
+  url: {{baseUrl}}/demo/runs
+  body: json
+  auth: none
+}
+body:json {
+  {"scenario":"READ","buyers":100,"concurrency":1,"stock":10,"durationSeconds":30,"jitterMs":100}
+}
+script:post-response {
+  bru.setVar("cancelRunId", res.body.runId);
+  bru.setVar("cancelDeadline", Date.now() + 45000);
+}
+tests {
+  test("accepted independently identified cancellable run", function () {
+    expect(res.status).to.equal(202);
+    expect(res.body.runId).to.not.equal(bru.getVar("runId"));
+  });
+}

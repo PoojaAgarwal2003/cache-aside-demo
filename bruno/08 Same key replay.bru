@@ -1,0 +1,26 @@
+meta {
+  name: Same key replay
+  type: http
+  seq: 8
+}
+post {
+  url: {{baseUrl}}/products/{{productId}}/purchase?strategy=ATOMIC_SQL
+  body: json
+  auth: none
+}
+headers {
+  X-Client-Id: {{purchaseClient}}
+  Idempotency-Key: {{purchaseKey}}
+}
+body:json {
+  {"quantity":2}
+}
+tests {
+  test("same committed receipt, not another decrement", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.replayed).to.equal(true);
+    expect(res.body.stockLeft).to.equal(8);
+    expect(res.body.purchaseId).to.equal(bru.getVar("purchaseId"));
+    expect(res.body.originalRequestId).to.equal(bru.getVar("originalRequestId"));
+  });
+}

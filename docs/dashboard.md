@@ -38,9 +38,30 @@ request clutter without changing the backend. The default profile renders the
 page but disables experiments and diagnostics. Same-origin mutations, loopback
 Host checks and a restrictive local-asset CSP remain enforced.
 
-Milestone 5 is in progress. Guided views, API collection and real-browser
-coverage follow in the next two commits; screenshots and recorded benchmarks
-remain milestone 6.
+## Six guided views
+
+Cards start documented bounded presets; the form supports customization.
+Fixed-shape cold/warm (two sequential readers), stale-fill, outage and
+lost-response (one buyer) workloads lock their required buyer/concurrency
+fields. Comparison uses five isolated 50-buyer/10-unit fixtures. Stampede uses
+two independent fixtures and shows actual SQL counts with protection on/off.
+No guide promises a particular general scheduler interleaving.
+
+The active guide explains setup, intended invariants and variability separately
+from recorded observations. Stale-fill explicitly labels its injected pause;
+lost-response labels an injected discard after real receipt. OUTAGE does not
+stop Redis: its expandable terminal instructions use only this project's
+Compose Redis service. A healthy-server run says Redis was healthy rather than
+inventing an outage. Inspect request details for real source/flow, rejected
+publication, replay and purchase identities.
+
+Comparison separates distinct measured buyers from HTTP attempts (which
+include retries), and labels the overall run completion state. Throughput is
+based on the recorded run-wide measurement interval, not isolated case time.
+Use [Bruno](bruno.md) for the sequential API walkthrough.
+
+Milestone 5's broader browser failure/accessibility gate is still in progress;
+publishable screenshots and recorded benchmarks remain milestone 6.
 
 ## Browser prerequisites and first slice
 

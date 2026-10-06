@@ -43,7 +43,9 @@
         <fieldset id="parameters" disabled>
           <legend class="sr-only">Experiment parameters</legend>
           <div class="fields">
-            <label>Workload<select name="scenario" id="scenario"><option value="PURCHASE">Purchase</option><option value="READ">Cold concurrent reads</option></select></label>
+            <label>Workload<select name="scenario" id="scenario"><option value="PURCHASE">Purchase</option><option value="READ">Cold concurrent reads</option>
+              <option value="COMPARE">Five strategies</option><option value="COLD_WARM">Cold then warm</option><option value="STAMPEDE">Stampede on / off</option>
+              <option value="STALE_FILL">Stale-fill race</option><option value="OUTAGE">Redis outage</option><option value="LOST_RESPONSE">Lost-response replay</option></select></label>
             <label>Strategy<select name="strategy" id="strategy"><option>ATOMIC_SQL</option><option>PESSIMISTIC</option><option>OPTIMISTIC</option><option>REDIS_ASSISTED</option><option>NONE</option></select></label>
             <label>Starting stock<input name="stock" type="number" min="0" max="1000000" value="10" required></label>
             <label>Buyers<input name="buyers" type="number" min="1" max="100" value="50" required></label>
@@ -76,6 +78,7 @@
       <p id="run-identity" class="identity"></p>
       <p id="run-meaning" class="muted">Counters come from the backend, never from animations.</p>
       <p id="run-warning" class="notice warning" hidden></p>
+      <p id="scenario-explanation" class="notice" hidden></p>
       <div class="counters" aria-label="Authoritative experiment counters">
         <article><h3>Committed sales</h3><strong id="sales">--</strong><span id="quantity-total">Unique sales, not HTTP responses</span></article>
         <article><h3>Remaining DB stock</h3><strong id="stock">--</strong><span id="stock-meaning">Across selected run fixtures</span></article>
@@ -106,10 +109,18 @@
       </div>
     </section>
 
-    <section id="guides" class="panel" aria-labelledby="guide-title" hidden>
+    <section id="guides" class="panel" aria-labelledby="guide-title">
       <p class="eyebrow">03 / EXPLORE</p><h2 id="guide-title">Six ways to challenge your assumptions</h2>
+      <p class="muted">Cards start documented presets, independent of the form above. Use the workload selector to customize them.</p>
       <div id="scenario-cards" class="guide-grid"></div>
-      <div id="scenario-explanation" class="notice" hidden></div>
+      <details><summary>Terminal-only Redis outage controls</summary>
+        <p>From this repository, using its Compose configuration and project-scoped service:</p>
+        <pre>docker compose stop redis
+# Start "Observe Redis outage", inspect fallback, then recover:
+docker compose start redis</pre>
+        <p class="muted">Do not stop a shared Redis server. With native test fixtures, use only the fixture owner's controls.
+          Redis persistence and product-cache readiness are different; recovery rotates cache trust before reads hit again.</p>
+      </details>
     </section>
 
     <section class="evidence-grid">

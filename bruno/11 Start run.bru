@@ -1,0 +1,23 @@
+meta {
+  name: Start run
+  type: http
+  seq: 11
+}
+post {
+  url: {{baseUrl}}/demo/runs
+  body: json
+  auth: none
+}
+body:json {
+  {"scenario":"PURCHASE","strategy":"ATOMIC_SQL","buyers":5,"concurrency":2,"stock":3,"quantity":1,"durationSeconds":30}
+}
+script:post-response {
+  bru.setVar("runId", res.body.runId);
+  bru.setVar("runDeadline", Date.now() + 45000);
+}
+tests {
+  test("accepted isolated real HTTP run", function () {
+    expect(res.status).to.equal(202);
+    expect(res.body.runId).to.be.a("string");
+  });
+}

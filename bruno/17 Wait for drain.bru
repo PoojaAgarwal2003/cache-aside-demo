@@ -1,0 +1,27 @@
+meta {
+  name: Wait for drain
+  type: http
+  seq: 17
+}
+get {
+  url: {{baseUrl}}/demo/runs/{{cancelRunId}}
+  body: none
+  auth: none
+}
+script:post-response {
+  if (res.body.active) {
+    if (Date.now() >= bru.getVar("cancelDeadline")) throw new Error("Cancellation did not drain within 45 seconds.");
+    await bru.sleep(250);
+    bru.runner.setNextRequest("Wait for drain");
+  }
+}
+tests {
+  test("terminal cancellation is quiescent and ledger verified", function () {
+    expect(res.status).to.equal(200);
+    if (!res.body.active) {
+      expect(res.body.state).to.equal("CANCELLED");
+      expect(res.body.result.quiescent).to.equal(true);
+      expect(res.body.result.cases[0].conservation).to.equal(true);
+    }
+  });
+}

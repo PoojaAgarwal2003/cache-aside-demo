@@ -38,4 +38,15 @@ class RunAccountingTest {
         return Map.of("phase", "MEASURED", "elapsedMs", latency, "httpStatus", status, "state", state,
                 "response", json.readTree("{\"body\":{\"code\":\"" + code + "\"}}"));
     }
+
+    @Test
+    void retriesDoNotCountAsAdditionalDispatchedBuyersAndCasesStayDistinct() {
+        var first = new java.util.HashMap<>(attempt(1, 200, "SOLD", "RESPONSE"));
+        first.put("caseIndex", 0); first.put("buyer", 1);
+        var replay = new java.util.HashMap<>(first); replay.put("phase", "RETRY");
+        var secondCase = new java.util.HashMap<>(first); secondCase.put("caseIndex", 1);
+        var result = RunAccounting.httpMetrics(List.of(first, replay, secondCase), 1000);
+        assertThat(result.get("attempts")).isEqualTo(3);
+        assertThat(result.get("buyersDispatched")).isEqualTo(2L);
+    }
 }

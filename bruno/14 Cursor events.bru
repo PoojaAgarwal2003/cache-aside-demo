@@ -1,0 +1,19 @@
+meta {
+  name: Cursor events
+  type: http
+  seq: 14
+}
+get {
+  url: {{baseUrl}}/demo/runs/{{runId}}/events?after=0&limit=100
+  body: none
+  auth: none
+}
+tests {
+  test("bounded events carry explicit retention metadata", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.events.length).to.be.at.most(100);
+    expect(res.body.nextCursor).to.be.a("number");
+    expect(res.body.gap).to.be.a("boolean");
+    expect(res.body.droppedEvents).to.be.a("number");
+  });
+}
