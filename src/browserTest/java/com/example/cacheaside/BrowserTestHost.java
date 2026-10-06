@@ -20,7 +20,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Test-only stdin control channel; no fault-control endpoint enters the shipped JAR. */
 public final class BrowserTestHost implements AutoCloseable {
-    private final PostgresFixture database = new PostgresFixture();
+    private final PostgresFixture database;
     private final RedisFixture redis;
     private final Path jar;
     private final Path directory;
@@ -28,10 +28,9 @@ public final class BrowserTestHost implements AutoCloseable {
     private Process app;
     private final JsonMapper json = new JsonMapper();
 
-    private BrowserTestHost(Path jar, Path directory) throws Exception {
-        this.jar = jar; this.directory = directory;
+    private BrowserTestHost(PostgresFixture database, RedisFixture redis, Path jar, Path directory) throws Exception {
+        this.database = database; this.redis = redis; this.jar = jar; this.directory = directory;
         Files.createDirectories(directory);
-        redis = new RedisFixture();
         try (var socket = new ServerSocket(0, 1, InetAddress.getLoopbackAddress())) { port = socket.getLocalPort(); }
     }
 
@@ -94,7 +93,9 @@ public final class BrowserTestHost implements AutoCloseable {
     }
 
     public static void main(String[] args) throws Exception {
-        try (var host = new BrowserTestHost(Path.of(args[0]), Path.of(args[1]));
+        try (var database = new PostgresFixture();
+             var redis = new RedisFixture();
+             var host = new BrowserTestHost(database, redis, Path.of(args[0]), Path.of(args[1]));
              var input = new BufferedReader(new InputStreamReader(System.in))) {
             host.start("demo");
             host.reply(Map.of("id", 0, "url", host.url()));
@@ -125,6 +126,6 @@ public final class BrowserTestHost implements AutoCloseable {
     }
     private void reply(Object value) { System.out.println("LAB_BROWSER " + json.writeValueAsString(value)); System.out.flush(); }
     @Override public void close() throws Exception {
-        try { stopApp(); } finally { try { redis.close(); } finally { database.close(); } }
+        stopApp();
     }
 }

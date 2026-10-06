@@ -21,13 +21,14 @@ public class StatusController {
     @GetMapping("/status")
     public Status status() {
         jdbc.queryForObject("SELECT 1", Integer.class);
-        return new Status("FlashSale Lab", 4, "AVAILABLE", cache.status().readiness().name(),
+        return new Status("FlashSale Lab", 5, "AVAILABLE", cache.status().readiness().name(),
                 properties.demoEnabled(), properties.readDelayMs(), properties.purchaseDelayMs(),
                 List.of("PRODUCT_API", "ATOMIC_SQL", "PESSIMISTIC", "OPTIMISTIC",
                         "DEMO_ONLY_UNSAFE_NONE", "REDIS_ASSISTED", "PERSISTED_IDEMPOTENCY", "ADMISSION_RECONCILIATION",
                         "GENERATION_FENCED_CACHE", "INVALIDATE_ONLY_LISTENER", "BOUNDED_REBUILD_LEASES",
                         "INDEPENDENT_REDIS_BREAKERS", "SLIDING_WINDOW_RATE_LIMIT", "PERSISTED_HTTP_EXPERIMENTS",
-                        "DRAINED_LEDGER_ACCOUNTING", "GUIDED_SCENARIOS", "CURSOR_EVENTS_AND_EXPORT"));
+                        "DRAINED_LEDGER_ACCOUNTING", "GUIDED_SCENARIOS", "CURSOR_EVENTS_AND_EXPORT",
+                        "LOCAL_DASHBOARD", "GUIDED_VIEWS", "SHOWCASE_LAYOUT", "BRUNO_COLLECTION"));
     }
 
     public record Status(String application, int milestone, String database, String cache,

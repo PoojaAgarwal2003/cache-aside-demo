@@ -15,16 +15,15 @@ two milestones to keep the backend runner and dashboard independently reviewable
 | 1. Authoritative vertical slice | 4 | Reproducible boot, migrations, product API, atomic SQL purchase, persisted idempotency and real PostgreSQL evidence | Delivered; native and Docker CI verified |
 | 2. Inventory strategies | 5 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Delivered; fifth correction passed Docker CI |
 | 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Delivered; native and Docker CI verified |
-| 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Implemented; native 102-test gate and packaged clients verified; see tagged CI |
-| 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Two slices verified; full failure/accessibility gate and publication pending |
+| 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Delivered; native and Docker CI verified |
+| 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Implemented; 104 backend tests, 5 Node units and 16 browser/CLI cases verified natively; see tagged CI |
 | 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Not started |
 
-**Current handoff:** milestone 4 contains three coherent commits, as authorized.
-The owner authorized milestone 5 in three commits. The fifth milestone-2 correction passed container
-CI. Original `milestone-2` remains immutable; `milestone-2-corrected` identifies
-that correction. [Evidence](evidence.md) separates native results and published
-container verification. Milestone 4 delivers the [persisted runner](experiments.md)
-and all six guided scenarios; browser presentation belongs to milestone 5.
+**Current handoff:** milestone 5 contains three coherent commits, as authorized:
+dashboard, guided views/Bruno, then browser failure/accessibility coverage and
+CI. Pause before milestone 6. [Evidence](evidence.md) separates native results
+and published container verification. Original `milestone-2` remains immutable;
+`milestone-2-corrected` identifies its owner-approved fifth correction.
 
 ## Milestone 1: authoritative vertical slice
 

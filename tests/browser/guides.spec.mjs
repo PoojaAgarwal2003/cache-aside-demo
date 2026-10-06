@@ -1,16 +1,10 @@
-import { test, expect } from './fixtures.mjs';
+import { test, expect, startRun, exportRun } from './fixtures.mjs';
 
 async function guided(page, label, scenario) {
-  await expect(page.getByRole('button', { name: label, exact: true })).toBeEnabled();
-  const accepted = page.waitForResponse(response => response.url().endsWith('/demo/runs') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: label, exact: true }).click();
-  const response = await accepted;
-  expect(response.status()).toBe(202);
-  const run = await response.json();
-  await expect(page).toHaveURL(new RegExp(run.runId));
+  const id = await startRun(page, label);
   await expect(page.locator('#run-title')).toHaveText(`${scenario} experiment`);
   await expect(page.locator('#run-state')).toContainText('COMPLETED', { timeout: 60_000 });
-  return (await page.request.get(new URL(`/demo/runs/${run.runId}/export`, page.url()).href)).json();
+  return exportRun(page, id);
 }
 
 test('all six guides render; cold/warm and stale-fill show recorded cache paths', async ({ page }) => {

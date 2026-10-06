@@ -60,19 +60,19 @@ include retries), and labels the overall run completion state. Throughput is
 based on the recorded run-wide measurement interval, not isolated case time.
 Use [Bruno](bruno.md) for the sequential API walkthrough.
 
-Milestone 5's broader browser failure/accessibility gate is still in progress;
-publishable screenshots and recorded benchmarks remain milestone 6.
+Milestone 5 covers the real browser failure/accessibility gate. Publishable
+screenshots and recorded benchmarks remain milestone 6.
 
-## Browser prerequisites and first slice
+## Browser verification
 
 Node 22+, pinned npm dependencies, JDK 17, and the same real PostgreSQL/Redis
 prerequisites as integration tests are required only for development tests:
 
 ```powershell
 npm.cmd ci
-npm.cmd exec playwright install chromium
+npm.cmd exec -- playwright install chromium
 npm.cmd test
-.\gradlew.bat browserTest
+.\scripts\verify.ps1 -BrowserOnly
 ```
 
 The Gradle task builds the actual JAR and a separate test-only fixture owner.
@@ -83,3 +83,14 @@ For the explicit native route, supply `FLASHSALE_TEST_JDBC_URL`,
 `FLASHSALE_TEST_REDIS_WSL`, `FLASHSALE_TEST_REDIS_BINARY` as in integration tests.
 No dependency failure is turned into a skipped pass. Failure screenshots/traces
 are in `test-results/`; the fixture/app log is in the build `browser/` directory.
+
+Coverage includes all guides, authoritative totals/identities/export/refresh,
+all-five comparison and unsafe warnings, cancellation during actual dispatch,
+real Redis stop/restart, backend loss with measured bounded polling, killed
+active app and interrupted recovery, finalization failure/reconciliation,
+default-profile denial and a 500-buyer comparison that exceeds backend/local
+event buffers. Mobile tests check page-wide overflow, keyboard controls,
+scrollable comparison, reduced motion and attach a real screenshot. Every page
+fixture rejects foreign-origin runtime requests, CSP violations and unhandled
+browser errors. Chromium is the supported automated browser, not a claim of
+cross-browser certification. The separate CI job retains browser reports.

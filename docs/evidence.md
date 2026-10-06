@@ -1,5 +1,69 @@
 # Acceptance evidence
 
+## Milestone 5: dashboard, guided views and API exploration
+
+Recorded **2026-10-06** before publication. The packaged **0.5.0** app was
+exercised on Windows x64, Temurin 17.0.20.1+1, PostgreSQL 16.15 and actual
+Redis 7.4.11 in the owned WSL distro. Node 22.17.0, Playwright 1.63.0 Chromium
+and Bruno CLI 4.2.0 are development tools only. Browser fixtures configured
+**200ms read / 25ms purchase synthetic delays**, explicitly shown in the UI.
+
+| Gate | Observed result |
+|---|---|
+| PowerShell 5.1 `verify.ps1`, full `check bootJar` | **104 tests: 13 unit + 91 integration; zero failures/errors/skips** |
+| Dashboard Node units | **5 passed**, including unknown metrics, bounded events and guide shapes |
+| PowerShell 5.1 `verify.ps1 -BrowserOnly` | **16 passed**: 15 actual-browser tests and one native Bruno collection test; no mocked successful backend or retry-based pass |
+| Native Bruno safe sandbox | All **18 requests**, with two assertions per request and bounded readiness/drain polls |
+| Final harness-only rerun | Bruno report covers every request; owned-host stream/fixture cleanup completes |
+| Packaging | All six local runtime assets inside the JAR; no BrowserTestHost/PostgresFixture/RedisFixture class shipped |
+
+Both verification commands used `-NativePostgresPort 15439`,
+`-NativeRedisWsl FlashSaleLab-Test` and
+`-NativeRedisBinary /opt/flashsale/redis-7.4.11/src/redis-server`.
+These are real native processes, **not a local Docker run**.
+
+The browser traversed actual same-origin HTTP routes and verified:
+
+- Live/final ledger quantities, request/purchase/run correlation, downloaded
+  JSON and unchanged results after refresh and app restart.
+- Six guided scenarios, all-five independent cases, NONE's unsafe label,
+  separate dispatched buyers/attempts, actual SQL counts and sample-aware
+  success/all-attempt latency. General races do not promise an exact outcome.
+- Actual Redis stop/start: fallback read, SQL sale, unavailable admission,
+  WAITING_FOR_REDIS, recovered readiness and successful retry.
+- Cancellation during genuine dispatch; backend disconnection explicitly
+  labels stale results, disables actions and caps polling; killed active app
+  returns INTERRUPTED/INCONCLUSIVE, with no new purchase and unknown timings.
+- A real isolated PostgreSQL trigger rejects finalization. New work stays
+  fenced; removing it and clicking Retry finalization yields INCONCLUSIVE
+  without another attempt or ledger decrement.
+- Default-profile denial; missing run and invalid form errors remain
+  actionable. A 500-buyer comparison evicts backend events, the local buffer
+  remains exactly bounded at 200, and authoritative totals survive.
+- Keyboard operation, 390px mobile layout without page-wide overflow, an
+  independently scrollable table, reduced motion and a real screenshot.
+  Every browser page rejects unhandled errors, CSP violations and foreign
+  runtime requests. Showcase preserves results/export and safety warnings.
+
+Test development corrected an export URL resolution error, fieldset-vs-control
+disabled assertions and an exact-label locator; it did not weaken inventory,
+cache-source or failure-state requirements. Missing-run handling was made a
+recoverable selection error instead of claiming the whole backend was offline.
+Startup/teardown ownership and default-profile action gating were hardened.
+
+PowerShell/Bash and JavaScript syntax/patch-format checks passed. This is
+correctness/interaction evidence, not a latency benchmark, an accessibility
+certification or cross-browser certification. Polished screenshots, controlled
+benchmark trials and recording scripts remain milestone 6.
+
+The publication gate is the `milestone-5` commit's **acceptance and browser**
+jobs in [GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions).
+They run with actual PostgreSQL/Redis containers and retain real browser
+artifacts for seven days. This pre-push record does not substitute for their
+success; delivery is complete only when both jobs pass. Pause before milestone 6.
+
+---
+
 ## Milestone 4: persisted experiments
 
 Recorded **2026-10-06**, before publication, using Windows x64, Temurin
@@ -66,7 +130,7 @@ This record precedes the milestone-4 push. The authoritative real PostgreSQL/
 Redis container result is the workflow for the `milestone-4` commit in
 [GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions);
 publication is not considered complete until that workflow succeeds.
-Milestone 5 remains paused.
+Milestone 5 was paused at that handoff and subsequently authorized above.
 
 ---
 

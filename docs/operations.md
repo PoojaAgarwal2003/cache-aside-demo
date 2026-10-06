@@ -44,6 +44,33 @@ The wrapper uses the exact pinned Gradle distribution and checksum; no global
 Gradle install is needed. Full verification always executes the integration
 task rather than reusing a previous database environment's cached result.
 
+## Dashboard, browser tests and Bruno
+
+Open the app root URL for the [dashboard](dashboard.md); runtime assets are
+inside the JAR, with no Node service or external CDN. Development verification
+adds explicit Node 22+/npm and Playwright Chromium prerequisites:
+
+```powershell
+npm.cmd ci
+npm.cmd exec -- playwright install chromium
+.\scripts\verify.ps1 -BrowserOnly
+```
+
+The normal Java `check` gate remains separate. Browser-only verification runs
+Node model tests, actual Chromium against the packaged JAR, and the native
+[Bruno collection](bruno.md). It owns an isolated database schema and Redis
+process/container. The same explicit `-NativePostgresPort`, `-NativeRedisWsl`,
+`-NativeRedisBinary` switches apply when Docker is unavailable; this is not
+reported as Docker evidence. Missing prerequisites fail rather than skip.
+Failure traces, screenshots and CLI results are in ignored `test-results/` and
+`playwright-report/`; app output is in the build directory's `browser/app.log`.
+Generated argument files are private local artifacts, not CI uploads.
+
+Linux/macOS uses `npm ci`, `npm exec -- playwright install chromium`, then
+`./scripts/verify.sh --browser-only`. On Linux CI add `--with-deps` to Playwright
+installation. This separate gate still requires real Docker PostgreSQL/Redis.
+Use `npm run test:api` only against an already running local demo app.
+
 ## Explicit native PostgreSQL and WSL Redis for developers
 
 This is an **alternative real-database test backend**, not a silent Docker

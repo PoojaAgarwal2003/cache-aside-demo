@@ -43,3 +43,15 @@ Testcontainers. Updates are deliberate future changes, not floating `latest`.
 Maintenance describes upstream release selection, not production certification
 or a promise of indefinite support. Recheck release/security information when
 resuming future milestones.
+
+## Milestone 5 browser/API development tooling
+
+The runtime dashboard uses local vanilla HTML/CSS/ES modules: no Node server,
+frontend dependency or CDN enters the shipped application. For acceptance only,
+`package.json` pins Playwright 1.63.0 and Bruno CLI 4.2.0, with exact transitive
+integrities in `package-lock.json`; Node 22+ is required (22.17.0 used by CI).
+Install with `npm ci`, then the matching Playwright Chromium binary.
+Bruno scripts run in its safe sandbox; no collection npm-module execution or
+developer sandbox is enabled. CI Node/artifact actions are commit-SHA pinned.
+Transitive npm deprecation notices are not a passed security audit or a reason
+to silently float dependency versions.

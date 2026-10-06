@@ -1,14 +1,17 @@
 # Architecture: delivered slice and future boundaries
 
 **One host application instance, one dedicated PostgreSQL database, one Redis
-service.** Milestone 4 implements five purchase strategies, one durable ledger/
+service.** Milestone 5 implements five purchase strategies, one durable ledger/
 idempotency boundary and advisory Redis admission, plus typed eventual caching,
 coordinated listener recovery and separate Redis cache/admission/limiter breakers,
-plus persisted real-HTTP experiments.
+plus persisted real-HTTP experiments and their same-origin dashboard.
 
 ```mermaid
 flowchart LR
-    Client[Local HTTP client] --> Boundary[Loopback / origin / size / demo gate]
+    Dashboard[Local HTML/CSS/ES modules in JAR] --> Runs[Persisted run API / cursor events]
+    Runs --> Client[Fixed loopback HTTP dispatcher]
+    Shell[PowerShell / Bash / Bruno] --> Runs
+    Client --> Boundary[Loopback / origin / size / demo gate]
     Boundary --> Limit[Redis-time request limiter]
     Limit --> Products[Product API: typed cache plus bounded DB reads]
     Limit --> Purchase[Purchase API: JdbcTemplate]
@@ -28,6 +31,13 @@ flowchart LR
     Purchase --> Invalidate
     Invalidate --> Cache
 ```
+
+The browser reads backend ledger/HTTP/SQL evidence, not a separate inventory
+model. Live observations are labeled unquiesced; only durable final results
+carry inventory verdicts. Polling and events are bounded (one cycle, 200 local
+events), with gap and stale-connection warnings. Unknown crash metrics remain
+unknown. The separate browser-test host owns real dependencies and the packaged
+JAR; its fixed stdin process controls do not enter the production artifact.
 
 ## Product path
 

@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { test, expect } from './fixtures.mjs';
+import { test, expect, startRun } from './fixtures.mjs';
 
 test('real experiment, request identities, JSON export and refreshed persisted totals', async ({ page, lab }) => {
   await expect(page.getByRole('button', { name: 'Run experiment', exact: true })).toBeEnabled();
   await page.getByLabel('Buyers', { exact: true }).fill('5');
   await page.getByLabel('Concurrency', { exact: true }).fill('2');
   await page.getByLabel('Starting stock').fill('3');
-  await page.getByRole('button', { name: 'Run experiment', exact: true }).click();
+  await startRun(page);
   await expect(page.locator('#run-state')).toHaveText('COMPLETED / inventory PASS');
   await expect(page.locator('#sales')).toHaveText('3');
   await expect(page.locator('#stock')).toHaveText('0');

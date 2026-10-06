@@ -2,10 +2,10 @@
 
 - This is a **single application-instance local educational lab**, not a
   production inventory service or distributed-system certification.
-- Milestone 4 implements all five strategies, advisory Redis admission, typed
+- Milestone 5 implements all five strategies, advisory Redis admission, typed
   product caching, listener recovery, bounded rebuilds, separate breakers and a
-  lab limiter, plus a persisted HTTP experiment runner. The dashboard remains
-  milestone 5; repeated benchmark/presentation work remains milestone 6.
+  lab limiter, a persisted HTTP experiment runner and the local dashboard.
+  Repeated benchmark/presentation work remains milestone 6.
 - No real payment is performed. Atomic stock/ledger commit and durable key
   deduplication do not imply exactly-once request execution or payment delivery.
 - `X-Client-Id` is a spoofable lab identity, not authentication. Keys have meaning
@@ -68,9 +68,14 @@
 - Native PostgreSQL and Redis-in-WSL acceptance is real process evidence, but **not Docker
   evidence**. The default Testcontainers path must fail, not skip, if Docker is
   missing. The author machine has no Docker runtime; see the evidence record.
-- Real Redis shutdown and forced Java-process death are tested now. Browser,
-  full Compose walkthrough, visual comparison and benchmark acceptance remain
-  for later milestones. There are no invented screenshots or performance results.
+- Real Redis shutdown, forced Java-process death and actual Chromium dashboard
+  failure/recovery are tested. Full Compose walkthrough and repeatable benchmark/
+  presentation acceptance remain milestone 6. No performance result is inferred
+  from a UI screenshot or a short demonstration.
+- Browser automation currently targets pinned Chromium, not a cross-browser
+  certification. Node/Bruno/Playwright are development dependencies only.
+  Eight-second browser timeouts and capped polling retries never automatically
+  resubmit a purchase. Export/live snapshots can be stale while disconnected.
 - Run safety, dispatch completion and HTTP success are separate. NONE can
   conserve stock mathematically while overselling. Seeded jitter does not make
   scheduling deterministic; small latency percentiles are not robust SLAs.

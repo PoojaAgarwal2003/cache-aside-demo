@@ -26,3 +26,32 @@ jobs:
           docker compose config --quiet
       - name: Real PostgreSQL and Redis acceptance, cache recovery, rate limits and process crashes
         run: ./scripts/verify.sh
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17.0.20+101'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.17.0'
+          cache: npm
+      - name: Install exact browser and API test tools
+        run: |
+          npm ci
+          npm exec -- playwright install --with-deps chromium
+      - name: Packaged app, real PostgreSQL/Redis, Chromium and native Bruno assertions
+        run: ./scripts/verify.sh --browser-only
+      - name: Retain real browser evidence and bounded fixture logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-evidence
+          retention-days: 7
+          path: |
+            test-results/
+            playwright-report/
+            build/browser/app.log

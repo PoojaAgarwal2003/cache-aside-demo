@@ -2,12 +2,14 @@
 [CmdletBinding()]
 param(
     [switch]$UnitOnly,
+    [switch]$BrowserOnly,
     [ValidateRange(0, 65535)][int]$NativePostgresPort = 0,
     [string]$NativeRedisWsl,
     [string]$NativeRedisBinary
 )
 . (Join-Path $PSScriptRoot 'common.ps1')
 $null = Get-LabJava
+if ($UnitOnly -and $BrowserOnly) { throw 'Choose -UnitOnly or -BrowserOnly, not both.' }
 if ($UnitOnly -and ($NativePostgresPort -or $NativeRedisWsl -or $NativeRedisBinary)) {
     throw 'Choose -UnitOnly or native acceptance prerequisites, not both.'
 }
@@ -34,7 +36,14 @@ try {
         Remove-Item Env:\FLASHSALE_TEST_REDIS_WSL -ErrorAction SilentlyContinue
         Remove-Item Env:\FLASHSALE_TEST_REDIS_BINARY -ErrorAction SilentlyContinue
     }
-    if ($UnitOnly) {
+    if ($BrowserOnly) {
+        if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
+            throw 'Browser verification needs Node 22+, npm ci, and npm exec playwright install chromium.'
+        }
+        & npm.cmd test
+        if ($LASTEXITCODE -ne 0) { throw 'Dashboard unit tests failed; run npm ci if pinned dependencies are missing.' }
+        & (Join-Path $ProjectRoot 'gradlew.bat') browserTest --console=plain
+    } elseif ($UnitOnly) {
         & (Join-Path $ProjectRoot 'gradlew.bat') test bootJar --console=plain
     } else {
         & (Join-Path $ProjectRoot 'gradlew.bat') check bootJar --console=plain

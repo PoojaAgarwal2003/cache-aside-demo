@@ -7,14 +7,14 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Milestone 4 of 6 is implemented:** all five inventory strategies and durable
+**Milestone 5 of 6 is implemented:** all five inventory strategies and durable
 idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
 The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
 drain/cancellation, ledger reconciliation, six guided scenarios and JSON export.
-**Milestone 5 is in progress:** the local-asset dashboard, six guided views,
-five-way comparison and asserted Bruno collection are implemented. The final
-browser failure/accessibility gate and publication follow in the third commit.
+The local-asset dashboard adds six guided views, five-way comparison, showcase
+layout and an asserted Bruno collection. **Pause before milestone 6**, which
+covers repeatable benchmarks and polished presentation/recordings.
 [The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
@@ -67,10 +67,22 @@ The limiter accepts 10 product/purchase requests per controlled client per
 | Testcontainers BOM | 2.0.5 |
 | JUnit | 5.14.4, explicitly retained instead of Boot's JUnit 6 default |
 | JDBC / Flyway / Hibernate / Awaitility | Boot-managed; exact graph in `gradle.lockfile` |
+| Browser/API development tests only | Node 22+, Playwright 1.63.0, Bruno CLI 4.2.0; `package-lock.json` |
 
 Install a JDK 17 and Docker with Linux containers and Compose v2. Set
 `JAVA_HOME` to the JDK, with its `bin` on `PATH`. No global Gradle, Node, Bash
-or frontend package installation is required on Windows.
+or frontend package installation is required to run the app on Windows.
+Only the separate browser/API development gate needs Node and Chromium:
+
+```powershell
+npm.cmd ci
+npm.cmd exec -- playwright install chromium
+.\scripts\verify.ps1 -BrowserOnly
+```
+
+Bash: `npm ci`, `npm exec -- playwright install --with-deps chromium`,
+then `./scripts/verify.sh --browser-only`. These tests start the actual packaged
+JAR with isolated real PostgreSQL/Redis fixtures, not mocked successful APIs.
 
 For a checkout inside OneDrive, set `FLASHSALE_BUILD_DIR` to a dedicated local,
 non-synced directory before building (for example

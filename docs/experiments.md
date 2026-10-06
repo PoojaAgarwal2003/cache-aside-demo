@@ -2,7 +2,8 @@
 
 Milestone 4 provides bounded HTTP dispatch, durable evidence, inventory
 verification, restart interruption, guided scenarios and command-line clients.
-The dashboard is milestone 5; this is the same backend it will use.
+The [dashboard](dashboard.md) and [Bruno collection](bruno.md) use this same
+backend; neither implements a second inventory or accounting engine.
 
 Healthy-cache read scenarios wait up to three seconds for their own fixture's
 committed creation notification before measuring. This drains setup invalidation

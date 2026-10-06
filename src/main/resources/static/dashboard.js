@@ -17,7 +17,11 @@ async function api(path, method = 'GET', body) {
       cache: 'no-store', redirect: 'error', headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}) });
     const value = await response.json();
-    if (!response.ok) throw new Error(`${value.code ?? `HTTP ${response.status}`}: ${value.message ?? 'Request failed'}${value.requestId ? ` (request ${value.requestId})` : ''}`);
+    if (!response.ok) {
+      const error = new Error(`${value.code ?? `HTTP ${response.status}`}: ${value.message ?? 'Request failed'}${value.requestId ? ` (request ${value.requestId})` : ''}`);
+      error.status = response.status;
+      throw error;
+    }
     return value;
   } catch (error) {
     if (error.name === 'AbortError') throw new Error('Local request exceeded 8 seconds. The backend run may still be active; inspect it before retrying.');
@@ -28,11 +32,11 @@ async function api(path, method = 'GET', body) {
 function controls() {
   const active = state.run?.active || state.recent.some(run => activeStates.has(run.state));
   $('parameters').disabled = !state.online || !state.demo || state.busy || active;
-  $('cancel').disabled = !state.online || state.busy || !state.run?.active;
+  $('cancel').disabled = !state.online || !state.demo || state.busy || !state.run?.active;
   $('reconcile').hidden = !state.run?.finalizationBlocked;
-  $('reconcile').disabled = !state.online || state.busy;
-  $('export').disabled = !state.online || !state.run || state.busy;
-  $('load-requests').disabled = !state.online || !state.run || state.busy;
+  $('reconcile').disabled = !state.online || !state.demo || state.busy;
+  $('export').disabled = !state.online || !state.demo || !state.run || state.busy;
+  $('load-requests').disabled = !state.online || !state.demo || !state.run || state.busy;
   for (const button of document.querySelectorAll('[data-scenario]')) button.disabled = $('parameters').disabled;
 }
 
@@ -196,12 +200,24 @@ async function poll() {
       state.recent = recent; renderHistory(recent); text('diagnostics', json(diagnostics));
       if (!state.id && recent.length) { selectRun(recent[0].runId); return; }
       if (state.id && epoch === state.epoch) {
-        const run = await api(`/demo/runs/${state.id}`);
+        let run;
+        try { run = await api(`/demo/runs/${state.id}`); }
+        catch (error) {
+          if (error.status !== 404) throw error;
+          if (epoch === state.epoch) {
+            notice('action-error', error.message);
+            text('run-state', 'Run not found. Choose a persisted run or start another.');
+          }
+        }
         if (epoch !== state.epoch) return;
-        renderRun(run);
-        const page = await api(`/demo/runs/${state.id}/events?after=${state.cursor}&limit=100`);
-        if (epoch === state.epoch) renderEvents(page);
+        if (run) {
+          renderRun(run);
+          const page = await api(`/demo/runs/${state.id}/events?after=${state.cursor}&limit=100`);
+          if (epoch === state.epoch) renderEvents(page);
+        }
       }
+    } else {
+      text('run-state', 'Run reporting is disabled in this profile. Previous evidence is not refreshed.');
     }
     state.failures = 0; notice('connection-error', '');
   } catch (error) {
@@ -304,7 +320,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) clear
 window.addEventListener('popstate', () => {
   const id = new URL(location.href).searchParams.get('run');
   if (id) selectRun(id, false);
-  else { state.id = null; state.run = null; state.epoch++; schedule(0); }
+  else { location.reload(); }
 });
 const initial = new URL(location.href).searchParams.get('run');
 if (initial) selectRun(initial, false);

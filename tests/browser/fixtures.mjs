@@ -20,7 +20,7 @@ async function host() {
   });
   const ready = wait(0);
   const exit = new Promise(resolve => {
-    child.on('exit', (code, signal) => {
+    child.on('close', (code, signal) => {
       exited = true;
       for (const value of pending.values()) { clearTimeout(value.timeout); value.reject(new Error(`Browser host exited ${code ?? signal}. Inspect test-results/browser-host.log.`)); }
       pending.clear(); log.end(); resolve(code);
@@ -51,16 +51,22 @@ async function host() {
     child.stdin.write(`${JSON.stringify({ id, command })}\n`);
     return response;
   };
+  const finish = async () => {
+    child.stdin.end();
+    const timeout = setTimeout(() => child.kill(), 90_000);
+    try { if (await exit !== 0) throw new Error('Browser host cleanup failed; inspect its log.'); }
+    finally { clearTimeout(timeout); }
+  };
   try {
     const { url } = await ready;
     return { url, command, async close() {
       try { if (!exited) await command('CLOSE'); }
-      finally { child.stdin.end(); }
-      const timeout = setTimeout(() => child.kill(), 45_000);
-      try { if (await exit !== 0) throw new Error('Browser host cleanup failed; inspect its log.'); }
-      finally { clearTimeout(timeout); }
+      finally { await finish(); }
     } };
-  } catch (error) { child.stdin.end(); throw error; }
+  } catch (error) {
+    try { await finish(); } catch (cleanup) { throw new AggregateError([error, cleanup], 'Browser host startup and cleanup failed.'); }
+    throw error;
+  }
 }
 
 export const test = base.extend({
@@ -70,10 +76,35 @@ export const test = base.extend({
   }, { scope: 'worker', timeout: 150_000 }],
   page: async ({ page, lab }, use) => {
     const errors = [];
+    const foreign = [];
     page.on('pageerror', error => errors.push(error.message));
+    page.on('console', message => { if (/content.security.policy|violates.*policy/i.test(message.text())) errors.push(message.text()); });
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.protocol.startsWith('http') && url.origin !== lab.url) foreign.push(request.url());
+    });
     await page.goto(lab.url);
     await use(page);
     expect(errors, 'No unhandled browser errors').toEqual([]);
+    expect(foreign, 'Runtime requests stay on the owned same-origin app').toEqual([]);
   }
 });
 export { expect };
+
+export async function startRun(page, label = 'Run experiment') {
+  const button = page.getByRole('button', { name: label, exact: true });
+  await expect(button).toBeEnabled();
+  const accepted = page.waitForResponse(response => response.url().endsWith('/demo/runs') && response.request().method() === 'POST');
+  await button.click();
+  const response = await accepted;
+  expect(response.status()).toBe(202);
+  const run = await response.json();
+  await expect(page).toHaveURL(new RegExp(run.runId));
+  return run.runId;
+}
+
+export async function exportRun(page, id) {
+  const response = await page.request.get(new URL(`/demo/runs/${id}/export`, page.url()).href);
+  expect(response.ok()).toBe(true);
+  return response.json();
+}
