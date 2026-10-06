@@ -155,6 +155,12 @@ public class RunEngine {
         var result = store.snapshot(id);
         Work work = active;
         result.put("finalizationBlocked", work != null && work.id.equals(id) && work.blocked);
+        if ((boolean) result.get("active") && work != null && work.id.equals(id)) {
+            double elapsed = (System.nanoTime() - work.started) / 1_000_000.0;
+            result.put("liveElapsedMs", elapsed);
+            result.put("liveHttp", RunAccounting.httpMetrics(store.attempts(id), elapsed));
+            result.put("liveDatabaseWork", database.snapshot());
+        }
         return result;
     }
 

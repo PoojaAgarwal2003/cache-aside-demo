@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="A local inventory and cache consistency lab. Real HTTP, committed ledger, honest results.">
+  <title>FlashSale Lab</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/dashboard.css">
+  <script type="module" src="/dashboard.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to experiments</a>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="FlashSale Lab home"><span class="mark" aria-hidden="true">F</span> FlashSale Lab</a>
+    <span class="local-label">LOCAL LAB / SINGLE INSTANCE</span>
+    <button id="showcase" type="button" aria-pressed="false">Showcase layout</button>
+  </header>
+  <main id="main">
+    <section class="intro" aria-labelledby="headline">
+      <div><p class="eyebrow">CONCURRENCY, WITHOUT THE GUESSWORK</p>
+        <h1 id="headline">50 buyers. 10 items.<br>What actually commits?</h1>
+        <p>Compare inventory strategies against a real PostgreSQL ledger.<br class="wide-only">
+          Redis accelerates reads. The database decides what sold.</p></div>
+      <aside class="dependency-card" aria-label="Dependency health">
+        <p class="eyebrow">LIVE DEPENDENCIES</p>
+        <p id="health" role="status">Connecting to the local app...</p>
+        <p id="delays" class="muted">Reading configured simulation delays...</p>
+        <details><summary>Cache and breaker diagnostics</summary><pre id="diagnostics">Not loaded.</pre></details>
+      </aside>
+    </section>
+
+    <div id="connection-error" class="notice error" role="alert" hidden></div>
+    <div id="action-error" class="notice error" role="alert" hidden></div>
+    <div id="default-notice" class="notice" hidden>Read-only default profile. Start with the explicit demo or benchmark profile to run experiments.</div>
+    <noscript><p class="notice error">JavaScript is required for the dashboard. The documented HTTP API and shell clients remain available.</p></noscript>
+
+    <section class="panel controls" aria-labelledby="configure-title">
+      <div class="section-heading"><div><p class="eyebrow">01 / CONFIGURE</p><h2 id="configure-title">Your next experiment</h2></div>
+        <p>New run. Isolated fixtures. Fresh client identities.</p></div>
+      <form id="run-form">
+        <fieldset id="parameters" disabled>
+          <legend class="sr-only">Experiment parameters</legend>
+          <div class="fields">
+            <label>Workload<select name="scenario" id="scenario"><option value="PURCHASE">Purchase</option><option value="READ">Cold concurrent reads</option></select></label>
+            <label>Strategy<select name="strategy" id="strategy"><option>ATOMIC_SQL</option><option>PESSIMISTIC</option><option>OPTIMISTIC</option><option>REDIS_ASSISTED</option><option>NONE</option></select></label>
+            <label>Starting stock<input name="stock" type="number" min="0" max="1000000" value="10" required></label>
+            <label>Buyers<input name="buyers" type="number" min="1" max="100" value="50" required></label>
+            <label>Concurrency<input name="concurrency" type="number" min="1" max="50" value="10" required></label>
+            <label>Quantity per buyer<input name="quantity" type="number" min="1" max="1000" value="1" required></label>
+          </div>
+          <details class="advanced"><summary>Dispatch settings and simulation delays</summary>
+            <div class="fields">
+              <label>Seed (safe integer)<input name="seed" type="number" min="-9007199254740991" max="9007199254740991" value="1" required></label>
+              <label>Dispatch jitter (ms)<input name="jitterMs" type="number" min="0" max="100" value="0" required></label>
+              <label>Dispatch budget (seconds)<input name="durationSeconds" type="number" min="1" max="120" value="60" required></label>
+              <label class="check"><input name="stampedeProtection" type="checkbox" checked> Stampede protection for reads</label>
+            </div>
+            <p class="muted">Read/purchase simulation delays are configured at app startup and shown above, not real database time.
+              Seed controls jitter only; scheduling remains nondeterministic. Dispatch is followed by bounded drain and verification.</p>
+          </details>
+          <p id="unsafe-warning" class="notice warning" hidden><strong>NONE is deliberately unsafe.</strong> It can oversell. Even a PASS sample is not a correctness guarantee.</p>
+          <div class="actions"><button class="primary" id="start" type="submit">Run experiment</button>
+            <button id="compare" type="button">Compare all five</button></div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="panel results" aria-labelledby="run-title">
+      <div class="section-heading"><div><p class="eyebrow">02 / OBSERVE</p><h2 id="run-title">No experiment selected</h2></div>
+        <div class="actions"><button id="cancel" type="button" disabled>Cancel and drain</button>
+          <button id="reconcile" type="button" hidden>Retry finalization</button>
+          <button id="export" type="button" disabled>Export JSON</button></div></div>
+      <p id="run-state" class="state" role="status" aria-live="polite">Start a run or open a persisted result below.</p>
+      <p id="run-identity" class="identity"></p>
+      <p id="run-meaning" class="muted">Counters come from the backend, never from animations.</p>
+      <p id="run-warning" class="notice warning" hidden></p>
+      <div class="counters" aria-label="Authoritative experiment counters">
+        <article><h3>Committed sales</h3><strong id="sales">--</strong><span id="quantity-total">Unique sales, not HTTP responses</span></article>
+        <article><h3>Remaining DB stock</h3><strong id="stock">--</strong><span id="stock-meaning">Across selected run fixtures</span></article>
+        <article><h3>HTTP replays</h3><strong id="replays">--</strong><span>Observed same-key responses</span></article>
+        <article><h3>Business rejections</h3><strong id="rejections">--</strong><span>Not unexplained HTTP errors</span></article>
+        <article><h3>Transaction retries</h3><strong id="retries">--</strong><span>From committed request records</span></article>
+        <article><h3>Cache hits</h3><strong id="hits">--</strong><span>Actual terminal GET sources</span></article>
+        <article><h3>Database executions</h3><strong id="db-work">--</strong><span id="db-time">Actual JDBC work, not miss counts</span></article>
+        <article><h3>HTTP attempts</h3><strong id="attempts">--</strong><span id="errors">Measured requests, not sales</span></article>
+      </div>
+      <div class="measurements">
+        <div><h3>All measured attempts</h3><p id="all-latency">No latency samples.</p></div>
+        <div><h3>Successful HTTP responses</h3><p id="success-latency">No latency samples.</p></div>
+        <div><h3>Harness interval</h3><p id="harness-time">Not measured yet.</p></div>
+      </div>
+      <details id="raw-result"><summary>Parameters, invariants and measured SQL by purpose</summary><pre id="result-json">No run selected.</pre></details>
+    </section>
+
+    <section id="comparison-panel" class="panel" aria-labelledby="comparison-title" hidden>
+      <p class="eyebrow">SIDE BY SIDE</p><h2 id="comparison-title">Independent cases, shared accounting</h2>
+      <p class="muted">Safety and completion are separate. Case throughput uses a run-wide interval, not isolated service capacity.</p>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable strategy comparison">
+        <table><caption>Final ledger and actual HTTP measurements</caption><thead><tr>
+          <th scope="col">Case / strategy</th><th scope="col">Safety</th><th scope="col">Completion</th><th scope="col">Unique sales / units</th>
+          <th scope="col">DB stock</th><th scope="col">Errors</th><th scope="col">DB calls</th><th scope="col">Interval</th>
+          <th scope="col">HTTP/s</th><th scope="col">All p50 / p95 / p99</th><th scope="col">Success p50 / p95 / p99</th>
+        </tr></thead><tbody id="comparison-body"></tbody></table>
+      </div>
+    </section>
+
+    <section id="guides" class="panel" aria-labelledby="guide-title" hidden>
+      <p class="eyebrow">03 / EXPLORE</p><h2 id="guide-title">Six ways to challenge your assumptions</h2>
+      <div id="scenario-cards" class="guide-grid"></div>
+      <div id="scenario-explanation" class="notice" hidden></div>
+    </section>
+
+    <section class="evidence-grid">
+      <div class="panel" aria-labelledby="events-title">
+        <div class="section-heading"><h2 id="events-title">Chronological evidence</h2><span id="event-count" class="muted">0 retained here</span></div>
+        <p class="muted">Buyer HTTP result - inspect for the real cache/Redis/database path. No inferred network timing.</p>
+        <p id="event-gap" class="notice warning" hidden></p>
+        <ol id="events" class="events"><li>No events yet.</li></ol>
+      </div>
+      <div class="panel" aria-labelledby="details-title">
+        <h2 id="details-title">Actual request details</h2>
+        <button id="load-requests" type="button" disabled>Load persisted requests</button>
+        <label class="request-label" for="request-select">Recorded HTTP attempt</label>
+        <select id="request-select" disabled><option>No request selected</option></select>
+        <p id="request-flow" class="flow">Select an HTTP event or load request details.</p>
+        <pre id="request-details" tabindex="0" aria-label="Request and response JSON">No synthetic responses.</pre>
+      </div>
+    </section>
+
+    <section class="panel history" aria-labelledby="history-title">
+      <div class="section-heading"><h2 id="history-title">Persisted runs</h2><button id="refresh" type="button">Refresh connection and runs</button></div>
+      <p class="muted">Latest 20 runs. A run URL and JSON export survive refresh and app restart.</p>
+      <ul id="history"><li>Connecting...</li></ul>
+    </section>
+    <footer><strong>A consistency lab, not a production storefront.</strong>
+      <p>Single instance. Eventual cache. Advisory Redis. No exactly-once promise. Small samples are observations, not SLAs.</p>
+      <p>Runtime assets are local. No external analytics, fonts, or arbitrary load targets.</p></footer>
+  </main>
+</body>
+</html>

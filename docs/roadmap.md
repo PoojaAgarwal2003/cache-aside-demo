@@ -16,11 +16,11 @@ two milestones to keep the backend runner and dashboard independently reviewable
 | 2. Inventory strategies | 5 | NONE, pessimistic, optimistic and Redis-assisted; controlled races, compensation, conservation and process-crash evidence | Delivered; fifth correction passed Docker CI |
 | 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Delivered; native and Docker CI verified |
 | 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Implemented; native 102-test gate and packaged clients verified; see tagged CI |
-| 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Not started |
+| 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | In progress; persisted-run dashboard and first real-browser slice verified |
 | 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Not started |
 
 **Current handoff:** milestone 4 contains three coherent commits, as authorized.
-Pause before milestone 5. The fifth milestone-2 correction passed container
+The owner authorized milestone 5 in three commits. The fifth milestone-2 correction passed container
 CI. Original `milestone-2` remains immutable; `milestone-2-corrected` identifies
 that correction. [Evidence](evidence.md) separates native results and published
 container verification. Milestone 4 delivers the [persisted runner](experiments.md)

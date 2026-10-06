@@ -40,6 +40,9 @@ public class RequestBoundaryFilter extends OncePerRequestFilter {
         response.setHeader("X-Request-Id", requestId);
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; "
+                + "connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+        response.setHeader("Referrer-Policy", "no-referrer");
         try {
             String host = request.getHeader("Host");
             int port = request.getLocalPort();

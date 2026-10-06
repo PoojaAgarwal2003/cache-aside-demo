@@ -26,6 +26,10 @@ sourceSets {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
     }
+    browserTest {
+        compileClasspath += sourceSets.integrationTest.output + sourceSets.integrationTest.runtimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
 }
 
 configurations {
@@ -86,6 +90,32 @@ tasks.register('integrationTest', Test) {
 
 tasks.named('check') {
     dependsOn integrationTest
+}
+
+def browserArguments = layout.buildDirectory.file('browser/host.args')
+tasks.register('prepareBrowserHost') {
+    dependsOn browserTestClasses, bootJar
+    doLast {
+        def argumentFile = browserArguments.get().asFile
+        argumentFile.parentFile.mkdirs()
+        def quote = { value -> '"' + value.toString().replace('\\', '\\\\').replace('"', '\\"') + '"' }
+        argumentFile.text = ['-cp', quote(sourceSets.browserTest.runtimeClasspath.asPath),
+            'com.example.cacheaside.BrowserTestHost', quote(tasks.bootJar.archiveFile.get().asFile),
+            quote(layout.buildDirectory.dir('browser').get().asFile)].join('\n')
+    }
+}
+
+tasks.register('browserTest', Exec) {
+    description = 'Runs Chromium against an owned packaged app and real PostgreSQL/Redis. Requires npm ci and Playwright Chromium.'
+    group = 'verification'
+    dependsOn prepareBrowserHost
+    doFirst {
+        environment 'FLASHSALE_BROWSER_HOST_ARGS', browserArguments.get().asFile.absolutePath
+        environment 'FLASHSALE_BROWSER_JAVA', javaToolchains.launcherFor(java.toolchain).get().executablePath.asFile.absolutePath
+    }
+    commandLine(System.getProperty('os.name').startsWith('Windows')
+            ? ['cmd.exe', '/d', '/c', 'npm.cmd', 'run', 'test:browser']
+            : ['npm', 'run', 'test:browser'])
 }
 
 tasks.named('bootJar') {

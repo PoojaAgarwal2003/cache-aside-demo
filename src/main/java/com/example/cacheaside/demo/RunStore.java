@@ -139,7 +139,9 @@ public class RunStore {
             result.put("liveInventory", jdbc.queryForList("""
                     SELECT f.case_index AS "caseIndex",p.stock,p.version,
                     (SELECT count(*) FROM purchase_ledger l WHERE l.product_id=f.product_id) AS "uniqueSales",
-                    (SELECT coalesce(sum(quantity),0) FROM purchase_ledger l WHERE l.product_id=f.product_id) AS "soldQuantity"
+                    (SELECT coalesce(sum(quantity),0) FROM purchase_ledger l WHERE l.product_id=f.product_id) AS "soldQuantity",
+                    (SELECT coalesce(sum(attempts-1),0) FROM purchase_requests p
+                     WHERE p.product_id=f.product_id) AS "transactionRetries"
                     FROM demo_run_fixtures f LEFT JOIN products p ON p.id=f.product_id WHERE f.run_id=? ORDER BY f.case_index
                     """, run));
             result.put("liveMeaning", "Unquiesced observation, not a final invariant verdict.");

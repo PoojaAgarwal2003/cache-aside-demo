@@ -105,6 +105,11 @@ class RunEngineAcceptanceTest {
         assertThat(paused.loaded.await(5, TimeUnit.SECONDS)).isTrue();
         long product = app.context.getBean(RunStore.class).fixtures(run).get(0).productId();
         try {
+            var live = body(app.request("GET", "/demo/runs/" + run, null, "observer", "x"));
+            assertThat(live.get("liveHttp").get("attempts").asInt()).isEqualTo(1);
+            assertThat(live.get("liveDatabaseWork").get("USER_READ").get("reads").asInt()).isEqualTo(1);
+            assertThat(live.get("liveInventory").get(0).get("transactionRetries").asInt()).isZero();
+            assertThat(live.get("result").isNull()).isTrue();
             assertThat(app.request("POST", "/demo/runs", "{}", "observer", "x").statusCode()).isEqualTo(409);
             assertThat(app.request("PATCH", "/products/" + product, "{\"stock\":999}", "observer", "x").statusCode()).isEqualTo(409);
             assertThat(app.request("GET", "/products/" + product, null, "observer", "x").statusCode()).isEqualTo(409);
@@ -129,8 +134,18 @@ class RunEngineAcceptanceTest {
         for (String invalid : List.of("{\"buyers\":101}", "{\"concurrency\":51}", "{\"host\":\"example.com\"}")) {
             assertThat(app.request("POST", "/demo/runs", invalid, "observer", "x").statusCode()).isEqualTo(400);
         }
-
         assertThat(app.jdbc.queryForObject("SELECT count(*) FROM demo_runs WHERE active", Integer.class)).isZero();
+    }
+
+    @Test
+    void dashboardAssetsAreLocalAndResponsePolicyRejectsInlineAndForeignCode() throws Exception {
+        var page = app.request("GET", "/", null, "observer", "x");
+        assertThat(page.statusCode()).isEqualTo(200);
+        assertThat(page.body()).contains("FlashSale Lab", "src=\"/dashboard.js\"", "href=\"/dashboard.css\"");
+        assertThat(page.headers().firstValue("Content-Security-Policy").orElseThrow())
+                .contains("script-src 'self'", "frame-ancestors 'none'").doesNotContain("unsafe-inline");
+        assertThat(app.request("GET", "/dashboard.js", null, "observer", "x").statusCode()).isEqualTo(200);
+        assertThat(app.request("GET", "/dashboard.css", null, "observer", "x").statusCode()).isEqualTo(200);
     }
 
     @Test

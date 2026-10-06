@@ -12,7 +12,9 @@ idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
 The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
 drain/cancellation, ledger reconciliation, six guided scenarios and JSON export.
-**Pause before milestone 5:** the visual dashboard is not implemented yet.
+**Milestone 5 is in progress:** a local-asset dashboard now starts real runs,
+shows live/final ledger evidence and exports persisted results. Guided views
+and full browser coverage follow in the next two commits.
 [The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
@@ -20,6 +22,9 @@ is the full target, not a list of already implemented features.
 
 [API walkthrough](docs/api.md) | [Architecture](docs/architecture.md) |
 [Operating guide](docs/operations.md) | [Limitations](docs/limitations.md)
+
+After starting the app, open `http://127.0.0.1:8080/` (or your configured port).
+[Dashboard guide](docs/dashboard.md)
 
 ```powershell
 # With the demo app running in another terminal:
