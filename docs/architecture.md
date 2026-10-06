@@ -1,9 +1,10 @@
 # Architecture: delivered slice and future boundaries
 
 **One host application instance, one dedicated PostgreSQL database, one Redis
-service.** Milestone 3 implements five purchase strategies, one durable ledger/
+service.** Milestone 4 implements five purchase strategies, one durable ledger/
 idempotency boundary and advisory Redis admission, plus typed eventual caching,
-coordinated listener recovery and separate Redis cache/admission/limiter breakers.
+coordinated listener recovery and separate Redis cache/admission/limiter breakers,
+plus persisted real-HTTP experiments.
 
 ```mermaid
 flowchart LR
@@ -171,6 +172,30 @@ inventing quota. See [product-cache.md](product-cache.md) for exact contracts an
 
 ## Feature-to-code map
 
+The run coordinator owns at most five isolated fixtures and uses separate
+bounded worker/transport pools. It discovers its own loopback server port, not
+a user-provided target. A process-local dispatch token binds request threads to
+run ownership and MDC; it is not exposed in exports. Cancellation seals future
+dispatch, drains accepted server-side work, then uses purchase-key advisory
+fences and locked PostgreSQL stock for final ledger reconciliation. Run/result
+completion commits atomically. Restart interrupts unfinished runs without
+replaying purchases. JDBC execution instrumentation includes the dedicated
+listener connection explicitly. See [experiments.md](experiments.md).
+
+```mermaid
+flowchart LR
+    Shell[PowerShell or Bash] --> Runs[Persisted run API]
+    Runs --> Coordinator[One bounded coordinator]
+    Coordinator --> Workers[Bounded HTTP workers and separate transport]
+    Workers --> Local[Own loopback filters and controllers]
+    Local --> Ledger[(Committed PostgreSQL ledger)]
+    Coordinator --> Seal[Seal dispatch and drain server requests]
+    Seal --> Verify[Key fences and locked final inventory]
+    Ledger --> Verify
+    Verify --> Result[(Atomic final result and terminal state)]
+    Result --> Export[Snapshot and JSON export]
+```
+
 | Delivered feature | Code |
 |---|---|
 | Boot/toolchain/dependencies | `build.gradle`, `gradle/wrapper`, `gradle.lockfile` |
@@ -187,6 +212,10 @@ inventing quota. See [product-cache.md](product-cache.md) for exact contracts an
 | Post-commit and external-write invalidation/recovery | `cache/CacheInvalidation.java`, `DbChangeListener.java`, `CacheCoordinator.java`, migration V6 |
 | Independent Redis failure domains | `cache/RedisAccess.java` |
 | Redis-time quota and observable HTTP policy | `ratelimit/`, `redis/rate-window.lua` |
+| Persisted bounded dispatcher and run/fixture ownership | `demo/RunEngine.java`, `RunGuard.java`, `RunRequestFilter.java`, migration V7 |
+| Atomic results, bounded cursor events and ledger reconciliation | `demo/RunStore.java`, `RunAccounting.java`, migration V8 |
+| Actual per-purpose JDBC work and guided stale-read pause | `demo/DatabaseWork.java`, `RunHooks.java` |
+| Real runner/filter, cancellation, failure, scenario and crash evidence | `RunEngineAcceptanceTest.java`, `RunScenariosAcceptanceTest.java`, `RunCrashAcceptanceTest.java` |
 | Database/HTTP concurrency and rollback evidence | `MilestoneOneAcceptanceTest.java` |
 | Protected/unsafe race evidence | `PurchaseStrategiesAcceptanceTest.java` |
 | Lua, actual Redis outage, epoch and compensation evidence | `RedisAdmissionAcceptanceTest.java` |

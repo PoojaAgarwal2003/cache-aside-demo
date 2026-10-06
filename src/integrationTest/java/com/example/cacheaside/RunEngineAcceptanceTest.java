@@ -3,6 +3,8 @@ package com.example.cacheaside;
 import com.example.cacheaside.cache.CacheCoordinator;
 import com.example.cacheaside.cache.CacheProbe;
 import com.example.cacheaside.product.ProductView;
+import com.example.cacheaside.purchase.PurchaseProbe;
+import com.example.cacheaside.purchase.PurchaseRequest;
 import com.example.cacheaside.demo.RunStore;
 import com.example.cacheaside.product.ProductService;
 import com.example.cacheaside.web.ApiException;
@@ -155,6 +157,58 @@ class RunEngineAcceptanceTest {
         return UUID.fromString(body(response).get("runId").asString());
     }
 
+    @Test
+    void failedFinalPersistenceKeepsRunFencedUntilExplicitKeyOnlyReconciliation() throws Exception {
+        app.jdbc.execute("""
+                CREATE FUNCTION reject_run_finish() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN RAISE EXCEPTION 'test-only finalization failure'; END $$
+                """);
+        app.jdbc.execute("""
+                CREATE TRIGGER reject_run_finish BEFORE UPDATE OF active ON demo_runs
+                FOR EACH ROW WHEN (NEW.active=false) EXECUTE FUNCTION reject_run_finish()
+                """);
+        UUID run;
+        try {
+            run = start("{\"buyers\":1,\"concurrency\":1,\"stock\":5}");
+            await().atMost(Duration.ofSeconds(10)).until(() -> {
+                var snapshot = app.context.getBean(com.example.cacheaside.demo.RunEngine.class).snapshot(run);
+                return (boolean) snapshot.get("finalizationBlocked");
+            });
+            assertThat(app.request("POST", "/demo/runs", "{}", "observer", "x").statusCode()).isEqualTo(409);
+        } finally {
+            app.jdbc.execute("DROP TRIGGER reject_run_finish ON demo_runs");
+            app.jdbc.execute("DROP FUNCTION reject_run_finish()");
+        }
+        await().atMost(Duration.ofSeconds(10)).until(() ->
+                app.request("POST", "/demo/runs/" + run + "/reconcile", null, "observer", "x").statusCode() == 200);
+        var result = complete(run);
+        assertThat(result.get("state").asString()).isEqualTo("INCONCLUSIVE");
+        assertThat(result.get("httpAttempts").asInt()).isEqualTo(1);
+        assertThat(result.get("result").get("soldQuantity").asInt()).isEqualTo(1);
+        assertThat(result.get("result").get("keysReconciled").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    void cancellationWaitsForAcceptedTransactionAndCountsItsLaterCommit() throws Exception {
+        var paused = new Pause();
+        app.context.getBean(ControlledPurchase.class).next.set(paused);
+        UUID run = start("{\"buyers\":5,\"concurrency\":1,\"stock\":10,\"quantity\":2}");
+        assertThat(paused.loaded.await(5, TimeUnit.SECONDS)).isTrue();
+        try {
+            app.request("POST", "/demo/runs/" + run + "/cancel", null, "observer", "x");
+            assertThat(app.context.getBean(RunStore.class).snapshot(run).get("active")).isEqualTo(true);
+            assertThat(app.jdbc.queryForObject("""
+                    SELECT count(*) FROM purchase_ledger WHERE product_id IN
+                    (SELECT product_id FROM demo_run_fixtures WHERE run_id=?)
+                    """, Integer.class, run)).isZero();
+        } finally { paused.release.countDown(); }
+        var result = complete(run);
+        assertThat(result.get("state").asString()).isEqualTo("CANCELLED");
+        assertThat(result.get("result").get("soldQuantity").asInt()).isEqualTo(2);
+        assertThat(result.get("result").get("cases").get(0).get("finalStock").asInt()).isEqualTo(8);
+        assertThat(result.get("httpAttempts").asInt()).isEqualTo(1);
+    }
+
     private static JsonNode complete(UUID run) throws Exception {
         await().atMost(Duration.ofSeconds(45)).until(() ->
                 !(boolean) app.context.getBean(RunStore.class).snapshot(run).get("active"));
@@ -164,6 +218,7 @@ class RunEngineAcceptanceTest {
     @TestConfiguration(proxyBeanMethods = false)
     static class Configuration {
         @Bean ControlledProbe controlledProbe() { return new ControlledProbe(); }
+        @Bean ControlledPurchase controlledPurchase() { return new ControlledPurchase(); }
     }
     static class Pause {
         final CountDownLatch loaded = new CountDownLatch(1);
@@ -172,6 +227,19 @@ class RunEngineAcceptanceTest {
     static class ControlledProbe implements CacheProbe {
         final AtomicReference<Pause> next = new AtomicReference<>();
         @Override public void afterLoad(long productId, ProductView value) {
+            Pause paused = next.getAndSet(null);
+            if (paused == null) { return; }
+            paused.loaded.countDown();
+            try { assertThat(paused.release.await(10, TimeUnit.SECONDS)).isTrue(); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+        }
+    }
+    static class ControlledPurchase implements PurchaseProbe {
+        final AtomicReference<Pause> next = new AtomicReference<>();
+        @Override public void beforeCommit(PurchaseRequest request, UUID purchaseId) {
             Pause paused = next.getAndSet(null);
             if (paused == null) { return; }
             paused.loaded.countDown();

@@ -32,7 +32,15 @@ public class RunRequestFilter extends OncePerRequestFilter {
         var purpose = request.getServletPath().endsWith("/purchase") ? DatabaseWork.Purpose.PURCHASE
                 : request.getMethod().equals("GET") && request.getServletPath().startsWith("/products/")
                 ? DatabaseWork.Purpose.USER_READ : DatabaseWork.Purpose.LISTENER_ADMIN;
-        try (var scope = guard.enter(token); var sql = database.purpose(purpose)) {
+        String caseIndex = request.getHeader("X-Lab-Case");
+        if (caseIndex == null || !caseIndex.matches("[0-4]")) {
+            response.setStatus(400);
+            response.setContentType("application/json");
+            json.writeValue(response.getOutputStream(), ApiError.of("INVALID_RUN_CASE", "Run case must be 0-4.", false));
+            return;
+        }
+        try (var scope = guard.enter(token); var sql = database.purpose(purpose);
+             var perCase = database.caseScope(Integer.parseInt(caseIndex))) {
             response.setHeader("X-Run-Id", MDC.get("runId"));
             chain.doFilter(request, response);
         } catch (ApiException closed) {

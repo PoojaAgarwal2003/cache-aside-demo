@@ -7,11 +7,12 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Milestone 3 of 6 is implemented:** all five inventory strategies and durable
+**Milestone 4 of 6 is implemented:** all five inventory strategies and durable
 idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
-**Paused before milestone 4.** The experiment runner and visual dashboard are
-not implemented yet.
+The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
+drain/cancellation, ledger reconciliation, six guided scenarios and JSON export.
+**Pause before milestone 5:** the visual dashboard is not implemented yet.
 [The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
@@ -19,6 +20,15 @@ is the full target, not a list of already implemented features.
 
 [API walkthrough](docs/api.md) | [Architecture](docs/architecture.md) |
 [Operating guide](docs/operations.md) | [Limitations](docs/limitations.md)
+
+```powershell
+# With the demo app running in another terminal:
+.\scripts\flash-sale.ps1 -Compare -OutFile comparison.json
+.\scripts\fire-requests.ps1 -Json '{"scenario":"COLD_WARM"}' -OutFile reads.json
+```
+
+[Experiments](docs/experiments.md) explains parameters, cancellation, scenarios,
+cursor events, measured SQL work and why HTTP counts alone cannot prove safety.
 
 | Strategy | What enforces the decision |
 |---|---|
@@ -100,5 +110,5 @@ routine stop or test step.
 ```
 
 An unavailable container runtime must fail acceptance, never silently skip it.
-The full dashboard, experiment runner and browser suite belong
+The dashboard, browser suite and repeated benchmark presentation belong
 to later milestones; there is no mock dashboard or invented screenshot.

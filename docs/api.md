@@ -1,4 +1,4 @@
-# HTTP API (milestone 3)
+# HTTP API (milestone 4)
 
 All routes are local. Start with `--spring.profiles.active=demo` (or benchmark)
 to enable mutations. The default profile is read-only. `X-Client-Id` is a
@@ -6,7 +6,7 @@ controlled lab identity, **not authentication**. Do not publish these endpoints.
 
 | Route | Contract |
 |---|---|
-| `GET /status` | Live database probe, milestone 3 capabilities, actual cache readiness and configured artificial delays |
+| `GET /status` | Live database probe, milestone 4 capabilities, actual cache readiness and configured artificial delays |
 | `GET /products/{id}` | 200/404 typed read envelope, with actual cache/DB source and publication outcome |
 | `POST /products` | Full `{name,price,stock}`; 201, DTO and `Location` |
 | `PATCH /products/{id}` | Explicit partial update; 200 DTO, 404 absent |
@@ -39,7 +39,7 @@ Invoke-RestMethod "$base/products/$($p.id)" -Method Patch -ContentType "applicat
 ```
 
 There is **no automatic fixture seed**. Creates, edits and deletes survive
-restart. Later guided scenarios will use explicit per-run isolated fixtures;
+restart. Guided scenarios create explicit per-run isolated fixtures;
 migrations never restore Laptop/Keyboard/Monitor over user edits.
 
 ## Product caching and diagnostics
@@ -190,3 +190,32 @@ return FIXTURE_BUSY. This is single-instance coordination, not a distributed
 run lock. DB triggers mark admission untrusted after admin/external updates or
 non-Redis purchases; application restart also distrusts existing epochs.
 Read [stock-admission.md](stock-admission.md) for TTLs, Lua states and crash limits.
+
+## Persisted experiment API
+
+All `/demo/runs` routes require demo or benchmark mode, including reads.
+Mutations retain the normal same-origin/body/Host checks. Runs never accept a
+target URL. Internal dispatch traverses the real product limiter with fresh
+per-case/buyer identities and includes server-generated `requestId`/`runId`.
+
+| Route | Contract |
+|---|---|
+| `POST /demo/runs` | Validated parameter object; 202 with run snapshot and Location; 409 RUN_BUSY if another run is active |
+| `GET /demo/runs` | Latest 20 run identifiers/states |
+| `GET /demo/runs/{id}` | Exact parameters, environment, fixtures, HTTP totals, live unquiesced inventory or durable final result |
+| `POST /demo/runs/{id}/cancel` | Seal new dispatch and drain accepted work; terminal runs are unchanged |
+| `POST /demo/runs/{id}/reconcile` | Retry failed finalization only after all workers/server requests stop; no new purchases; 409 RUN_NOT_QUIESCENT otherwise |
+| `GET /demo/runs/{id}/events?after=0&limit=100` | Bounded cursor page, next/earliest cursor, exact dropped-event count, gap, truncation and hasMore |
+| `GET /demo/runs/{id}/export` | Schema-versioned JSON with snapshot, all bounded attempts and first event page (paginate remaining events separately) |
+
+`finalizationBlocked` means ownership was deliberately retained after drain or
+storage failure. Restore the dependency and use the reconciliation route; never
+reset stock to make a failed run appear successful. A process restart instead
+marks unfinished work INTERRUPTED and key-fences its committed outcomes.
+
+Defaults and eight scenario names are in [experiments.md](experiments.md).
+`COMPLETED` means the harness finished, not that every buyer succeeded or that
+NONE was safe. Read `invariantVerdict`, individual case verdicts, completion,
+HTTP errors/rejections, transaction retries and scenario observations separately.
+Unknown run IDs return 404 RUN_NOT_FOUND. Active fixture operations from outside
+the runner and global cache-clear return 409 RUN_BUSY.

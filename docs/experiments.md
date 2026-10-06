@@ -1,8 +1,12 @@
 # Persisted experiments
 
-Milestone 4 is being delivered in three commits. The first two slices provide
-bounded HTTP dispatch, durable evidence, inventory verification and restart
-interruption. Guided scenarios and command-line clients follow in the last slice.
+Milestone 4 provides bounded HTTP dispatch, durable evidence, inventory
+verification, restart interruption, guided scenarios and command-line clients.
+The dashboard is milestone 5; this is the same backend it will use.
+
+Healthy-cache read scenarios wait up to three seconds for their own fixture's
+committed creation notification before measuring. This drains setup invalidation
+without guessing a sleep duration or counting setup as a cache miss.
 
 `POST /demo/runs` accepts a JSON object. Defaults are scenario `PURCHASE`,
 strategy `ATOMIC_SQL`, 50 buyers, concurrency 10, stock 10, quantity 1, seed 1,
@@ -12,6 +16,10 @@ dispatcher. Unknown fields and user-supplied target hosts are rejected.
 Bounds: buyers 1-100, concurrency 1-50 and no greater than buyers, quantity
 1-1000, stock 0-1000000, jitter 0-100 milliseconds, duration 1-120 seconds.
 Jitter is seeded; OS, transaction and network scheduling are not deterministic.
+Configured read/purchase synthetic delays are recorded in each run, not counted
+as SQL execution time. Comparison/stampede caps apply per case; one comparison
+has at most five products and 500 buyers total. No automatic retry loop expands
+the number of logical buyers.
 The dispatcher has separate bounded coordinator, HTTP worker and transport
 executors. Actual GET/purchase requests go to this server's discovered loopback
 port, traverse its normal request boundary, limiter and controllers, and never
@@ -38,6 +46,11 @@ not proof of server quiescence. Purchase retries also check the run's monotonic
 deadline. Dispatch is bounded to 120 seconds, with an additional 30-second drain
 budget and bounded verification. If drain or result persistence fails, the
 runner remains fenced rather than allowing a second run over unresolved work.
+
+When `finalizationBlocked` is true, restore the failed dependency and
+`POST /demo/runs/{id}/reconcile`. It refuses while workers/server requests remain,
+then retries key-only accounting without dispatching purchases. The recovered
+result stays INCONCLUSIVE; it is not retroactively a clean experiment.
 
 Verification takes the same transaction-scoped advisory locks used by purchases,
 then reads the committed request/ledger rows and locks final product rows.
@@ -78,4 +91,79 @@ is one call. Execution time includes JDBC/network/lock wait, not row decoding,
 transaction commit/rollback or synthetic sleeps. The owned listener's direct
 JDBC connection is counted explicitly during the run window. Other unrelated
 requests are excluded. Counts stop before the final persistence transaction.
+`caseDatabaseWork` additionally attributes actual dispatch/controller calls to
+the case; listener and final global verification remain in the overall totals.
 No cache-miss arithmetic or SQL-log scraping is used as a query counter.
+Measured HTTP metrics include MEASURED and RETRY phases; setup, stale-reader
+verification and outage recovery probes remain separately labeled in raw
+attempts. Per-case throughput uses the whole-run denominator, not an invented
+per-case service interval. Each HTTP summary includes its exact
+`measurementWindowMs`: case intervals stop before final ledger verification,
+while the normal final global summary includes that verification. An interrupted
+run cannot retain a monotonic clock across JVMs and exports null duration and
+throughput rather than pretending no work occurred.
+
+## Scenarios
+
+| Scenario | Actual work and interpretation |
+|---|---|
+| PURCHASE | One isolated product, selected strategy, bounded distinct-client buyers |
+| READ | One cold isolated product, actual GETs; optional `stampedeProtection:false` keeps DB bulkhead/fencing |
+| COMPARE | Five sequential independent cases; each defaults to 50 buyers, stock 10; NONE explicitly unsafe even if a sample does not oversell |
+| COLD_WARM | Two sequential GETs, fixed buyers 2/concurrency 1; observation flag requires actual DATABASE then Redis source |
+| STAMPEDE | Separate cold products, protection on then off; actual per-case SQL executions, not estimated misses |
+| STALE_FILL | Fixed buyer/concurrency 1; demo-only pause after DB read (maximum 4 seconds), real PATCH commit/invalidation, release old reader, verification GET |
+| OUTAGE | Fixed buyer/concurrency 1 per case; actual Redis probe, fallback GET, atomic purchase and Redis-assisted purchase, bounded wait for real recovery and same-key admission retry |
+| LOST_RESPONSE | Fixed buyer/concurrency 1; deliberately discard one actual HTTP response, repeat its same scoped key, reconcile ledger; explicitly injected client loss, not a network fault |
+
+For fixed guided scenarios, incompatible explicit buyer/concurrency settings
+are rejected rather than silently ignored. Scenario observations can be false
+(for example cache readiness changed or NONE did not oversell); results report
+what happened rather than manufacturing the expected demonstration.
+
+Both clients create runs and poll/export the backend. They contain no stock
+accounting or alternative purchase implementation:
+
+```powershell
+.\scripts\flash-sale.ps1 -Compare -OutFile comparison.json
+.\scripts\flash-sale.ps1 -Strategy PESSIMISTIC -Buyers 50 -Stock 10 -OutFile sale.json
+.\scripts\fire-requests.ps1 -Json '{"scenario":"STAMPEDE","buyers":20,"concurrency":8}' -OutFile burst.json
+.\scripts\fire-requests.ps1 -Json '{"scenario":"STALE_FILL"}' -OutFile stale.json
+.\scripts\fire-requests.ps1 -Json '{"scenario":"LOST_RESPONSE","quantity":2}' -OutFile replay.json
+# Return immediately with a run ID instead of polling:
+.\scripts\fire-requests.ps1 -Json '{"scenario":"READ"}' -NoWait
+```
+
+```sh
+# Bash clients additionally require curl and jq.
+./scripts/flash-sale.sh COMPARE comparison.json
+./scripts/fire-requests.sh --json '{"scenario":"COLD_WARM"}' --out reads.json
+./scripts/fire-requests.sh --json '{"scenario":"READ"}' --no-wait
+```
+
+The scripts use `APP_PORT`/the safe `.env` allowlist, never an external host.
+Ctrl+C or a polling failure attempts cancellation; it does not kill the app or
+database. FAILED/INCONCLUSIVE/INTERRUPTED results are exported then reported as
+client failures. A completed unsafe comparison may legitimately report FAIL.
+
+For a real outage, use separate terminals from this checkout:
+
+```powershell
+docker compose --project-name flashsale-lab stop redis
+.\scripts\fire-requests.ps1 -Json '{"scenario":"OUTAGE","durationSeconds":120}' -OutFile outage.json
+# In another terminal, after WAITING_FOR_REDIS appears in cursor events:
+docker compose --project-name flashsale-lab start redis
+```
+
+No HTTP endpoint executes these commands or controls Docker. Native users must
+stop/start only their owned Redis process. Readiness requires listener health,
+product-cache probes and a fresh epoch; admission has its own reconciliation.
+If Redis was healthy at the start, the run explicitly says no outage was
+demonstrated. If recovery does not occur before the deadline, the result is
+INCONCLUSIVE. An open breaker is an observed unavailable call, not proof that
+the Redis process is still physically down.
+
+Runs, fixtures, attempts and keys are retained in the disposable lab database
+for refresh/restart/export. Only events have automatic retention. Long-term
+database housekeeping and statistically meaningful repeated benchmarks are
+not implemented by this milestone.

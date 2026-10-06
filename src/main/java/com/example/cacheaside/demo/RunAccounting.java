@@ -134,9 +134,25 @@ public class RunAccounting {
         result.put("attempts", measured.size()); result.put("responses", responses);
         result.put("successfulResponses", success.size()); result.put("businessRejections", businessRejections);
         result.put("errorsOrUnknown", measured.size() - success.size() - businessRejections);
+        result.put("terminalReadSources", classifications(measured, "source"));
+        result.put("cacheWriteOutcomes", classifications(measured, "cacheWriteOutcome"));
+        result.put("replays", measured.stream().filter(a -> a.get("response") instanceof JsonNode response
+                && response.path("body").path("replayed").asBoolean()).count());
         result.put("allAttemptLatency", percentiles(measured)); result.put("successLatency", percentiles(success));
-        result.put("httpAttemptsPerSecond", elapsedMs > 0 ? measured.size() * 1000.0 / elapsedMs : 0);
-        result.put("throughputDenominator", "Whole run duration including setup, drain and verification; not service capacity.");
+        result.put("measurementWindowMs", elapsedMs > 0 ? elapsedMs : null);
+        result.put("httpAttemptsPerSecond", elapsedMs > 0 ? measured.size() * 1000.0 / elapsedMs : null);
+        result.put("throughputDenominator", "Recorded run-wide interval, not isolated case time or service capacity; "
+                + "case intervals stop before final ledger verification, normal final global interval includes it.");
+        return result;
+    }
+
+    private static Map<String, Long> classifications(List<Map<String, Object>> attempts, String field) {
+        var result = new LinkedHashMap<String, Long>();
+        for (var attempt : attempts) {
+            if (attempt.get("response") instanceof JsonNode response && response.path("body").has(field)) {
+                result.merge(response.get("body").get(field).asString(), 1L, Long::sum);
+            }
+        }
         return result;
     }
 

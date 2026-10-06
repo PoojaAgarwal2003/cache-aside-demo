@@ -33,6 +33,7 @@ public class DbChangeListener implements SmartLifecycle {
     private volatile Integer backendPid;
     private Thread thread;
     private final com.example.cacheaside.demo.DatabaseWork work;
+    private final com.example.cacheaside.demo.RunHooks hooks;
 
     public DbChangeListener(CacheCoordinator coordinator, JsonMapper json, Environment environment,
                             ObjectProvider<CacheProbe> probes,
@@ -40,12 +41,14 @@ public class DbChangeListener implements SmartLifecycle {
                             @Value("${spring.datasource.username}") String user,
                             @Value("${spring.datasource.password}") String password,
                             @Value("${spring.flyway.default-schema}") String schema,
-                            com.example.cacheaside.demo.DatabaseWork work) {
+                            com.example.cacheaside.demo.DatabaseWork work,
+                            com.example.cacheaside.demo.RunHooks hooks) {
         this.coordinator = coordinator;
         this.json = json;
         this.url = url + (url.contains("?") ? "&" : "?") + "connectTimeout=3&socketTimeout=3&tcpKeepAlive=true";
         this.schema = schema;
         this.work = work;
+        this.hooks = hooks;
         credentials.setProperty("user", user);
         credentials.setProperty("password", password);
         credentials.setProperty("ApplicationName", "flashsale-product-listener");
@@ -125,6 +128,7 @@ public class DbChangeListener implements SmartLifecycle {
                 throw new IllegalArgumentException("Invalid product notification.");
             }
             coordinator.invalidate(change.get("productId").asLong());
+            hooks.afterNotification(change.get("productId").asLong());
             notifications.increment();
         } catch (JacksonException | IllegalArgumentException invalid) {
             coordinator.bypass("Malformed product notification; rotate epoch before reuse.");

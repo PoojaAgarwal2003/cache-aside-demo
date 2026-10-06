@@ -36,11 +36,12 @@ public class ProductReadService {
     private final Semaphore database;
     private final com.example.cacheaside.demo.RunGuard runs;
     private final com.example.cacheaside.demo.DatabaseWork work;
+    private final com.example.cacheaside.demo.RunHooks hooks;
 
     public ProductReadService(ProductService products, ProductCacheClient cache, CacheCoordinator coordinator,
                               ObjectProvider<CacheProbe> probes, Environment environment,
                               CacheReadProperties properties, LabProperties lab, com.example.cacheaside.demo.RunGuard runs,
-                              com.example.cacheaside.demo.DatabaseWork work) {
+                              com.example.cacheaside.demo.DatabaseWork work, com.example.cacheaside.demo.RunHooks hooks) {
         this.products = products;
         this.cache = cache;
         this.coordinator = coordinator;
@@ -48,6 +49,7 @@ public class ProductReadService {
         this.lab = lab;
         this.runs = runs;
         this.work = work;
+        this.hooks = hooks;
         database = new Semaphore(properties.databasePermits(), true);
         probe = environment.acceptsProfiles(Profiles.of("test"))
                 ? probes.getIfAvailable(() -> new CacheProbe() { }) : new CacheProbe() { };
@@ -163,6 +165,7 @@ public class ProductReadService {
             }
             databaseLoads.increment();
             ProductView value = products.find(id).orElse(null);
+            hooks.afterLoad(id);
             probe.afterLoad(id, value);
             return value;
         } catch (InterruptedException interrupted) {

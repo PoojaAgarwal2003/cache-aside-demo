@@ -23,6 +23,7 @@ import org.springframework.jdbc.datasource.DelegatingDataSource;
 public class DatabaseWork {
     public enum Purpose { USER_READ, FALLBACK, PURCHASE, LISTENER_ADMIN, VERIFICATION }
     private final ThreadLocal<Purpose> purpose = new ThreadLocal<>();
+    private final ThreadLocal<Integer> caseIndex = new ThreadLocal<>();
     private volatile Window window;
 
     private static final class Counts {
@@ -35,14 +36,27 @@ public class DatabaseWork {
     private static final class Window {
         final String id;
         final Map<Purpose, Counts> counts = new EnumMap<>(Purpose.class);
+        final java.util.List<Map<Purpose, Counts>> cases = new java.util.ArrayList<>();
         Window(UUID id) {
             this.id = id.toString();
             for (var purpose : Purpose.values()) { counts.put(purpose, new Counts()); }
+            for (int i = 0; i < 5; i++) {
+                var perCase = new EnumMap<Purpose, Counts>(Purpose.class);
+                for (var purpose : Purpose.values()) { perCase.put(purpose, new Counts()); }
+                cases.add(perCase);
+            }
         }
     }
 
     public void begin(UUID id) { window = new Window(id); }
     public void end() { window = null; }
+
+    public RunGuard.Scope caseScope(int index) {
+        if (index < 0 || index > 4) { throw new IllegalArgumentException("Invalid experiment case index."); }
+        Integer previous = caseIndex.get();
+        caseIndex.set(index);
+        return () -> { if (previous == null) { caseIndex.remove(); } else { caseIndex.set(previous); } };
+    }
 
     public RunGuard.Scope purpose(Purpose value) {
         Purpose previous = purpose.get();
@@ -52,9 +66,21 @@ public class DatabaseWork {
 
     public Map<String, Object> snapshot() {
         Window current = window;
+        return current == null ? Map.of() : snapshot(current.counts);
+    }
+
+    public Map<String, Object> caseSnapshots() {
+        Window current = window;
         var result = new LinkedHashMap<String, Object>();
-        if (current == null) { return result; }
-        current.counts.forEach((name, count) -> result.put(name.name(), Map.of("reads", count.reads.sum(),
+        if (current != null) {
+            for (int i = 0; i < current.cases.size(); i++) { result.put(Integer.toString(i), snapshot(current.cases.get(i))); }
+        }
+        return result;
+    }
+
+    private Map<String, Object> snapshot(Map<Purpose, Counts> counts) {
+        var result = new LinkedHashMap<String, Object>();
+        counts.forEach((name, count) -> result.put(name.name(), Map.of("reads", count.reads.sum(),
                 "writes", count.writes.sum(), "control", count.control.sum(), "failed", count.failures.sum(),
                 "executeMs", count.nanos.sum() / 1_000_000.0)));
         return result;
@@ -64,7 +90,13 @@ public class DatabaseWork {
         Window current = window;
         if (current == null || !listener && !current.id.equals(MDC.get("runId"))) { return; }
         Purpose classification = listener || purpose.get() == null ? Purpose.LISTENER_ADMIN : purpose.get();
-        Counts count = current.counts.get(classification);
+        add(current.counts.get(classification), sql, elapsed, failed);
+        if (!listener && caseIndex.get() != null) {
+            add(current.cases.get(caseIndex.get()).get(classification), sql, elapsed, failed);
+        }
+    }
+
+    private void add(Counts count, String sql, long elapsed, boolean failed) {
         String normalized = sql.stripLeading().toUpperCase(java.util.Locale.ROOT);
         if (normalized.startsWith("SELECT") || normalized.startsWith("WITH") || normalized.startsWith("/*")) {
             count.reads.increment();

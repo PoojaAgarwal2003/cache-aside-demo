@@ -27,7 +27,8 @@ not race it by deleting the same live ownership file.
 
 `start.ps1 -Profile default` disables all mutations and artificial latency.
 `start.ps1 -Profile benchmark` enables lab mutation but sets both delays to zero.
-Neither constitutes a benchmark experiment harness yet.
+The shared experiment runner records the actual configured delays; repeated
+benchmark trials and presentation remain milestone 6.
 
 Scripts load only the documented `.env` keys; existing process environment wins.
 Direct `gradlew bootRun` does **not** read `.env`.
@@ -94,7 +95,22 @@ Direct Gradle native Redis selection uses `FLASHSALE_TEST_REDIS_WSL` and
 test backend selections unless explicitly supplied. The default Linux/macOS
 verification uses real Testcontainers for both databases.
 
-## Strategy comparison without the later experiment runner
+## Persisted experiments and comparison
+
+```powershell
+.\scripts\flash-sale.ps1 -Compare -OutFile comparison.json
+.\scripts\fire-requests.ps1 -Json '{"scenario":"COLD_WARM"}' -OutFile reads.json
+```
+
+These PowerShell 5.1 clients invoke the same bounded backend as the future
+dashboard. [Experiments](experiments.md) documents all scenarios, controls and
+metric definitions. JSON exports survive page refresh and app restart. Cancel
+with `POST /demo/runs/{id}/cancel`, not `stop.ps1`, to drain accepted work.
+If finalization is blocked, restore dependencies then call the run's
+`/reconcile` route; it does not issue purchases. Restarted unfinished runs are
+INTERRUPTED, never silently resumed.
+
+For individual API exploration instead of the shared runner:
 
 Create a separate product for each strategy using [the API walkthrough](api.md).
 Never reuse a NONE product for protected purchases. For REDIS_ASSISTED, call
@@ -107,7 +123,7 @@ API resets/deletes are rejected while that fixture has active local work.
 Run `integrationTest` for the controlled concurrency comparison and actual
 before/after-commit child-process termination tests. They traverse real HTTP,
 then check committed ledger quantities and DB stock, not just HTTP 200 counts.
-The runnable user-facing experiment harness and cancellation belong to milestone 4.
+The runner now performs the same ledger-based accounting after its own drain.
 
 Use distinct controlled client IDs when comparing inventory concurrency. Same
 client tests share a 10-request/10-second limit, including retries; 429 is a
@@ -146,6 +162,9 @@ cp .env.example .env
 ./scripts/stop.sh
 ./scripts/verify.sh --unit-only
 ./scripts/verify.sh
+# Install curl and jq for the experiment clients:
+./scripts/flash-sale.sh COMPARE comparison.json
+./scripts/fire-requests.sh --json '{"scenario":"LOST_RESPONSE"}' --out replay.json
 ```
 
 The Bash app runs as the foreground process, not an unidentified detached
@@ -177,6 +196,10 @@ are checked in CI. Windows execution does not depend on these files.
 | Counter / reservation TTL | 60 / 120 seconds | Fixed expiry; release never recreates an expired counter |
 | Automatic cleanup loop / manual reconciliation loop | 3 / 15 seconds | Monotonic loop bounds plus the final bounded resolver transaction |
 | HTTP threads / connections / accept queue | 64 / 128 / 64 | Local server backpressure, not a public SLA |
+| Run buyers / concurrency / active runs | 50 / 10 / 1 | Caps 100 / 50 / 1; comparison caps apply per independent case |
+| Run coordinator / worker / transport pools | 1 / 50 / 16 | Queue bounds 1 / 50 / 256; no HTTP-server executor reuse |
+| Run dispatch / HTTP / drain / verification | 60 / 20 / 30 / 10 seconds | Dispatch configurable 1-120s; later bounded settlement can extend total duration |
+| Retained events / page size / recent runs | 256 / 100 / 20 | Cursor gaps explicit; final results and attempts retained separately |
 | JSON body / headers | 8192 bytes / 8 KB | Chunked bodies also bounded |
 | Product initial/reset stock | 0-1000000 | No negative API reset |
 | Purchase quantity | 1-1000 | No coercion; omitted body alone defaults to 1 |

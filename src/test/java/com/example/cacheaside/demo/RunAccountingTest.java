@@ -27,6 +27,9 @@ class RunAccountingTest {
         assertThat(result.get("businessRejections").asInt()).isEqualTo(1);
         assertThat(result.get("errorsOrUnknown").asInt()).isEqualTo(1);
         assertThat(result.get("httpAttemptsPerSecond").asDouble()).isEqualTo(4);
+        assertThat(result.get("measurementWindowMs").asDouble()).isEqualTo(1000);
+        assertThat(json.valueToTree(RunAccounting.httpMetrics(attempts, 0))
+                .get("httpAttemptsPerSecond").isNull()).isTrue();
         assertThat(json.valueToTree(RunAccounting.httpMetrics(List.of(), 0))
                 .get("successLatency").get("p50").isNull()).isTrue();
     }

@@ -20,9 +20,11 @@ public class RunStore {
     private final JsonMapper json;
     private final TransactionTemplate transaction;
     private final RunGuard guard;
+    private final RunHooks hooks;
 
-    public RunStore(JdbcTemplate jdbc, JsonMapper json, PlatformTransactionManager manager, RunGuard guard) {
+    public RunStore(JdbcTemplate jdbc, JsonMapper json,     PlatformTransactionManager manager, RunGuard guard, RunHooks hooks) {
         this.jdbc = jdbc; this.json = json; this.guard = guard;
+        this.hooks = hooks;
         transaction = new TransactionTemplate(manager);
         transaction.setTimeout(5);
     }
@@ -42,6 +44,7 @@ public class RunStore {
                     VALUES (?,?,?,?,?,?,0)
                     """, run, index, product, label, strategy, stock);
             guard.own(product);
+            hooks.expectCreation(product);
             return new Fixture(index, product, label, strategy, stock, 0);
         });
     }
@@ -132,6 +135,15 @@ public class RunStore {
         result.put("httpAttempts", jdbc.queryForObject("SELECT count(*) FROM demo_run_attempts WHERE run_id=?", Integer.class, run));
         result.put("httpResponses", jdbc.queryForObject(
                 "SELECT count(*) FROM demo_run_attempts WHERE run_id=? AND state='RESPONSE'", Integer.class, run));
+        if ((boolean) result.get("active")) {
+            result.put("liveInventory", jdbc.queryForList("""
+                    SELECT f.case_index AS "caseIndex",p.stock,p.version,
+                    (SELECT count(*) FROM purchase_ledger l WHERE l.product_id=f.product_id) AS "uniqueSales",
+                    (SELECT coalesce(sum(quantity),0) FROM purchase_ledger l WHERE l.product_id=f.product_id) AS "soldQuantity"
+                    FROM demo_run_fixtures f LEFT JOIN products p ON p.id=f.product_id WHERE f.run_id=? ORDER BY f.case_index
+                    """, run));
+            result.put("liveMeaning", "Unquiesced observation, not a final invariant verdict.");
+        }
         return result;
     }
 

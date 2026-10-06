@@ -8,7 +8,7 @@ import tools.jackson.databind.JsonNode;
 public record RunParameters(Scenario scenario, String strategy, int buyers, int concurrency,
                             int stock, int quantity, long seed, int jitterMs, int durationSeconds,
                             boolean stampedeProtection) {
-    public enum Scenario { PURCHASE, READ }
+    public enum Scenario { PURCHASE, READ, COMPARE, COLD_WARM, STAMPEDE, STALE_FILL, OUTAGE, LOST_RESPONSE }
     private static final Set<String> FIELDS = Set.of("scenario", "strategy", "buyers", "concurrency", "stock",
             "quantity", "seed", "jitterMs", "durationSeconds", "stampedeProtection");
 
@@ -20,8 +20,16 @@ public record RunParameters(Scenario scenario, String strategy, int buyers, int 
         try { scenario = Scenario.valueOf(text(body, "scenario", "PURCHASE")); }
         catch (IllegalArgumentException invalid) { throw ApiException.invalid("Unknown experiment scenario."); }
         String strategy = PurchaseStrategy.resolve(text(body, "strategy", "ATOMIC_SQL")).name();
-        int buyers = number(body, "buyers", 50, 1, 100);
-        int concurrency = number(body, "concurrency", 10, 1, 50);
+        int fixedBuyers = switch (scenario) {
+            case COLD_WARM -> 2;
+            case STALE_FILL, OUTAGE, LOST_RESPONSE -> 1;
+            default -> 0;
+        };
+        int buyers = number(body, "buyers", fixedBuyers > 0 ? fixedBuyers : 50, 1, 100);
+        int concurrency = number(body, "concurrency", Math.min(buyers, fixedBuyers > 0 ? 1 : 10), 1, 50);
+        if (fixedBuyers > 0 && (buyers != fixedBuyers || concurrency != 1)) {
+            throw ApiException.invalid(scenario + " uses " + fixedBuyers + " buyer(s) and concurrency 1.");
+        }
         if (concurrency > buyers) { throw ApiException.invalid("Concurrency cannot exceed buyers."); }
         long seed = 1;
         if (body.has("seed")) {
@@ -39,6 +47,10 @@ public record RunParameters(Scenario scenario, String strategy, int buyers, int 
                 number(body, "stock", 10, 0, 1_000_000), number(body, "quantity", 1, 1, 1000),
                 seed, number(body, "jitterMs", 0, 0, 100),
                 number(body, "durationSeconds", 60, 1, 120), protection);
+    }
+
+    public int intendedOperations() {
+        return buyers * switch (scenario) { case COMPARE -> 5; case STAMPEDE -> 2; case OUTAGE -> 3; default -> 1; };
     }
 
     private static String text(JsonNode body, String field, String fallback) {

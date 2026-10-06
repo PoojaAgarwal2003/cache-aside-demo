@@ -23,9 +23,11 @@ public class RunController {
     @GetMapping
     public Object recent() { engine.requireDemo(); return store.recent(); }
     @GetMapping("/{id}")
-    public Object snapshot(@PathVariable UUID id) { engine.requireDemo(); return store.snapshot(id); }
+    public Object snapshot(@PathVariable UUID id) { engine.requireDemo(); return engine.snapshot(id); }
     @PostMapping("/{id}/cancel")
     public Object cancel(@PathVariable UUID id) { return engine.cancel(id); }
+    @PostMapping("/{id}/reconcile")
+    public Object reconcile(@PathVariable UUID id) { return engine.reconcile(id); }
     @GetMapping("/{id}/events")
     public Object events(@PathVariable UUID id, @RequestParam(defaultValue = "0") long after,
                          @RequestParam(defaultValue = "100") int limit) {
@@ -36,7 +38,7 @@ public class RunController {
     @GetMapping("/{id}/export")
     public Object export(@PathVariable UUID id) {
         engine.requireDemo();
-        return Map.of("schemaVersion", 1, "run", store.snapshot(id), "attempts", store.attempts(id),
+        return Map.of("schemaVersion", 1, "run", engine.snapshot(id), "attempts", store.attempts(id),
                 "events", store.events(id, 0, 100));
     }
 }

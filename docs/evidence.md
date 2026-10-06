@@ -1,5 +1,75 @@
 # Acceptance evidence
 
+## Milestone 4: persisted experiments
+
+Recorded **2026-10-06**, before publication, using Windows x64, Temurin
+17.0.20.1+1, PostgreSQL 16.15 and real Redis 7.4.11 in the owned WSL distro.
+The Windows PowerShell 5.1 full `verify.ps1` gate completed `check bootJar`:
+**102 tests, zero failures, errors or skips** (12 unit, 90 integration).
+The existing cluster used loopback port 15439 because Windows refused the
+previous port; no database files or unrelated processes were changed.
+
+```powershell
+powershell.exe -NoProfile -File .\scripts\verify.ps1 `
+  -NativePostgresPort 15439 -NativeRedisWsl FlashSaleLab-Test `
+  -NativeRedisBinary /opt/flashsale/redis-7.4.11/src/redis-server
+```
+
+| Added coverage | Tests | Observed assertions |
+|---|---:|---|
+| Run parameter/accounting units | 2 | Strict bounds, nearest-rank percentiles, success/all sample separation, null throughput when elapsed time is unavailable |
+| `RunEngineAcceptanceTest` | 7 | Actual filtered HTTP 50/10, quantity conservation, scoped identities, isolated fixtures, ownership conflicts, read/transaction cancellation, bounded events and explicit finalization recovery |
+| `RunCrashAcceptanceTest` | 2 | Actual child JVM termination before/after purchase commit; INTERRUPTED on restart, durable key/ledger accounting, no automatic replay, persisted export after another restart |
+| `RunScenariosAcceptanceTest` | 5 | All five strategies and all six guided scenarios; actual SQL attribution, stale-fill fence, discarded response, real Redis process outage/restart and independent admission recovery |
+
+The full combined gate caught a fixture-notification timing race: delayed INSERT
+invalidation could reject the first supposedly cold fill, making the next GET
+another database read. Healthy-cache read scenarios now await their specific
+committed creation notification before measurement, with a three-second bound.
+The focused runner/scenario suites and full regression gate then passed.
+No fixed sleep or weakened cache-source assertion replaced the failed test.
+
+One controlled test installs an isolated database trigger that rejects final
+result persistence. The run remains fenced, a second run is rejected, and after
+the trigger is removed the explicit reconciliation endpoint resolves existing
+keys without issuing another purchase. Its result remains INCONCLUSIVE.
+Cancellation tests hold actual server-side reads and purchase transactions;
+the runner does not declare them drained while those operations are still held.
+
+### Packaged 0.4.0 walkthrough
+
+The executable JAR was started/stopped using Windows PowerShell 5.1 ownership
+scripts, an isolated schema and a separately owned Redis process. Configured
+delays were **200ms reads / 10ms purchases**. Actual PowerShell 5.1 and Git Bash
+clients both exercised the shared backend and wrote JSON exports:
+
+| Exercise | Observed result |
+|---|---|
+| PowerShell five-way comparison | 50 distinct buyers and initial stock 10 per case; each protected case sold exactly 10 units, final stock 0 and PASS |
+| NONE comparison case | This sample also sold 10, stock 0; retained the unsafe label, not a claim that NONE is correct |
+| Cold/warm | Actual DATABASE followed by REDIS_CACHE |
+| Stale fill | Real committed PATCH; old reader publication REJECTED_GENERATION |
+| Quantity-2 discarded response | Exactly one sale/two units, same-key replay, no second decrement |
+| Bash purchase wrapper | 50/10 ATOMIC_SQL with ledger PASS and JSON export |
+| Bash generic client | Separate protection-on/off stampede cases, durable result |
+| Cancel and refresh | CANCELLED only after quiescence; prior final ledger result unchanged on export refresh |
+| Real Redis stop/start | WAITING_FOR_REDIS event, fallback read, atomic sale, admission unavailable, actual recovery and successful admission retry |
+| Two app restarts | Comparison state, ledger totals and all 251 HTTP attempt records retained unchanged |
+| Default profile | All run read/export/event and mutation routes denied; demo profile explicitly required |
+
+Script parsing passed for every PowerShell/Bash entry point. The Redis outage
+was an actual process stop/start; stale-reader pause and response discard remain
+explicitly labeled injected local faults. No latency-throughput benchmark,
+dashboard/browser result, screenshot or local Docker execution is claimed.
+
+This record precedes the milestone-4 push. The authoritative real PostgreSQL/
+Redis container result is the workflow for the `milestone-4` commit in
+[GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions);
+publication is not considered complete until that workflow succeeds.
+Milestone 5 remains paused.
+
+---
+
 ## Milestone 3: cache consistency and resilience
 
 Recorded **2026-10-05** before the milestone-3 push, with the same Windows x64,

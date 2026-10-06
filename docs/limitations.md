@@ -2,9 +2,10 @@
 
 - This is a **single application-instance local educational lab**, not a
   production inventory service or distributed-system certification.
-- Milestone 3 implements all five strategies, advisory Redis admission, typed
+- Milestone 4 implements all five strategies, advisory Redis admission, typed
   product caching, listener recovery, bounded rebuilds, separate breakers and a
-  lab limiter. The experiment runner and dashboard remain later milestones.
+  lab limiter, plus a persisted HTTP experiment runner. The dashboard remains
+  milestone 5; repeated benchmark/presentation work remains milestone 6.
 - No real payment is performed. Atomic stock/ledger commit and durable key
   deduplication do not imply exactly-once request execution or payment delivery.
 - `X-Client-Id` is a spoofable lab identity, not authentication. Keys have meaning
@@ -14,7 +15,7 @@
   **no concurrent unsafe or administrative stock changes**. Ordinary product
   PATCH can intentionally reset stock after drain. Local fixture guards reject
   API resets during in-flight purchases; direct SQL is outside those guards.
-  A future runner adds run lifecycle/cancellation controls.
+  The runner also refuses outside API changes across a whole active run.
 - The product schema deliberately omits `CHECK (stock >= 0)` so the
   demo-only NONE race can show negative inventory. A real service would normally
   enforce that CHECK as an additional defense. API starting/reset stock cannot
@@ -54,16 +55,31 @@
   restart can reset quota. DB backpressure still applies.
 - Redis cannot distinguish never-created from already-expired data without
   retained history; inspection reports `ABSENT_OR_EXPIRED`, not a fabricated
-  expiry event. All metrics are process-local counters, not durable run reports.
+  expiry event. Cache status counters are process-local; experiment results
+  persist actual measured SQL/HTTP totals at finalization. Pre-crash in-memory
+  counters are labeled unavailable, not reconstructed or invented.
 - Routine stop preserves Compose volumes. Redis AOF `everysec` is configured,
   but persistence is not an unconditional guarantee or proof that cached data
   is trustworthy after reconnect.
 - Windows `stop.ps1` terminates only the saved, identity-checked app PID; it is
   not a transaction-draining experiment cancel operation. PostgreSQL resolves
-  its transaction. Graceful runner cancellation belongs to milestone 4.
+  its transaction. Use the run cancellation API to seal/drain an experiment;
+  process death instead produces an INTERRUPTED run on restart.
 - Native PostgreSQL and Redis-in-WSL acceptance is real process evidence, but **not Docker
   evidence**. The default Testcontainers path must fail, not skip, if Docker is
   missing. The author machine has no Docker runtime; see the evidence record.
 - Real Redis shutdown and forced Java-process death are tested now. Browser,
   full Compose walkthrough, visual comparison and benchmark acceptance remain
   for later milestones. There are no invented screenshots or performance results.
+- Run safety, dispatch completion and HTTP success are separate. NONE can
+  conserve stock mathematically while overselling. Seeded jitter does not make
+  scheduling deterministic; small latency percentiles are not robust SLAs.
+- Run dispatch is capped at 120 seconds; existing requests, drain and bounded
+  verification can extend end-to-end time. Failed finalization retains ownership
+  until safe reconciliation or restart; cancellation never kills a DB transaction.
+- Stale-reader pause and client response discard are labeled injected local
+  faults. OUTAGE observes real Redis calls and waits for manual service recovery;
+  no web endpoint stops processes or controls a Docker socket.
+- At most 256 events survive per run, with explicit gaps and dropped counts.
+  Runs/products/attempts/keys remain until an administrator manages the
+  disposable database; this is not a public long-term retention service.
