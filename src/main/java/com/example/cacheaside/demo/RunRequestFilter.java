@@ -19,14 +19,20 @@ import tools.jackson.databind.json.JsonMapper;
 public class RunRequestFilter extends OncePerRequestFilter {
     private final RunGuard guard;
     private final JsonMapper json;
-    public RunRequestFilter(RunGuard guard, JsonMapper json) { this.guard = guard; this.json = json; }
+    private final DatabaseWork database;
+    public RunRequestFilter(RunGuard guard, JsonMapper json, DatabaseWork database) {
+        this.guard = guard; this.json = json; this.database = database;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String token = request.getHeader("X-Lab-Dispatch");
         if (token == null) { chain.doFilter(request, response); return; }
-        try (var scope = guard.enter(token)) {
+        var purpose = request.getServletPath().endsWith("/purchase") ? DatabaseWork.Purpose.PURCHASE
+                : request.getMethod().equals("GET") && request.getServletPath().startsWith("/products/")
+                ? DatabaseWork.Purpose.USER_READ : DatabaseWork.Purpose.LISTENER_ADMIN;
+        try (var scope = guard.enter(token); var sql = database.purpose(purpose)) {
             response.setHeader("X-Run-Id", MDC.get("runId"));
             chain.doFilter(request, response);
         } catch (ApiException closed) {

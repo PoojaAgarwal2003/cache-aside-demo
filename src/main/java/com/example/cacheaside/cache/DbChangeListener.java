@@ -32,17 +32,20 @@ public class DbChangeListener implements SmartLifecycle {
     private volatile Connection connection;
     private volatile Integer backendPid;
     private Thread thread;
+    private final com.example.cacheaside.demo.DatabaseWork work;
 
     public DbChangeListener(CacheCoordinator coordinator, JsonMapper json, Environment environment,
                             ObjectProvider<CacheProbe> probes,
                             @Value("${spring.datasource.url}") String url,
                             @Value("${spring.datasource.username}") String user,
                             @Value("${spring.datasource.password}") String password,
-                            @Value("${spring.flyway.default-schema}") String schema) {
+                            @Value("${spring.flyway.default-schema}") String schema,
+                            com.example.cacheaside.demo.DatabaseWork work) {
         this.coordinator = coordinator;
         this.json = json;
         this.url = url + (url.contains("?") ? "&" : "?") + "connectTimeout=3&socketTimeout=3&tcpKeepAlive=true";
         this.schema = schema;
+        this.work = work;
         credentials.setProperty("user", user);
         credentials.setProperty("password", password);
         credentials.setProperty("ApplicationName", "flashsale-product-listener");
@@ -72,7 +75,7 @@ public class DbChangeListener implements SmartLifecycle {
                     if (!running) { break; }
                     try (var statement = owned.createStatement()) {
                         statement.setQueryTimeout(2);
-                        statement.execute("LISTEN product_changes");
+                        work.listenerExecute(statement, "LISTEN product_changes");
                     }
                     var postgres = owned.unwrap(PGConnection.class);
                     backendPid = postgres.getBackendPID();
@@ -85,7 +88,7 @@ public class DbChangeListener implements SmartLifecycle {
                         }
                         try (var statement = owned.createStatement()) {
                             statement.setQueryTimeout(2);
-                            statement.execute("SELECT 1");
+                            work.listenerExecute(statement, "SELECT 1");
                         }
                         coordinator.tick();
                     }

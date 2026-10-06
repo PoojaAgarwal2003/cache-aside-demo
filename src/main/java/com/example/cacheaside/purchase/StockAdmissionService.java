@@ -99,7 +99,7 @@ public class StockAdmissionService {
 
     // Used by both the purchase and reconciliation transaction before resolving a
     // scoped key. Hash collisions only serialize unrelated keys, never merge them.
-    void lockRequest(String clientId, String keyHash) {
+    public void lockRequest(String clientId, String keyHash) {
         jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", clientId + ":" + keyHash);
     }
 

@@ -35,16 +35,19 @@ public class ProductReadService {
     private final LabProperties lab;
     private final Semaphore database;
     private final com.example.cacheaside.demo.RunGuard runs;
+    private final com.example.cacheaside.demo.DatabaseWork work;
 
     public ProductReadService(ProductService products, ProductCacheClient cache, CacheCoordinator coordinator,
                               ObjectProvider<CacheProbe> probes, Environment environment,
-                              CacheReadProperties properties, LabProperties lab, com.example.cacheaside.demo.RunGuard runs) {
+                              CacheReadProperties properties, LabProperties lab, com.example.cacheaside.demo.RunGuard runs,
+                              com.example.cacheaside.demo.DatabaseWork work) {
         this.products = products;
         this.cache = cache;
         this.coordinator = coordinator;
         this.properties = properties;
         this.lab = lab;
         this.runs = runs;
+        this.work = work;
         database = new Semaphore(properties.databasePermits(), true);
         probe = environment.acceptsProfiles(Profiles.of("test"))
                 ? probes.getIfAvailable(() -> new CacheProbe() { }) : new CacheProbe() { };
@@ -136,12 +139,18 @@ public class ProductReadService {
             }
         }
         flow.add("Wait deadline/readiness ended; waiter cannot publish without a lease.");
-        return result(started, Source.DATABASE_FALLBACK, WriteOutcome.NOT_ATTEMPTED, flow, load(id));
+        return result(started, Source.DATABASE_FALLBACK, WriteOutcome.NOT_ATTEMPTED, flow, fallbackLoad(id));
     }
 
     private ProductRead fallback(long id, long started, List<String> flow) {
         flow.add("Uncached PostgreSQL fallback for product " + id + "; no Redis fill.");
-        return result(started, Source.DATABASE_FALLBACK, WriteOutcome.SKIPPED_UNAVAILABLE, flow, load(id));
+        return result(started, Source.DATABASE_FALLBACK, WriteOutcome.SKIPPED_UNAVAILABLE, flow, fallbackLoad(id));
+    }
+
+    private ProductView fallbackLoad(long id) {
+        try (var scope = work.purpose(com.example.cacheaside.demo.DatabaseWork.Purpose.FALLBACK)) {
+            return load(id);
+        }
     }
 
     private ProductView load(long id) {

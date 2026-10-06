@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.server.context.WebServerInitializedEvent;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,8 @@ public class RunEngine {
     private final RunGuard guard;
     private final LabProperties lab;
     private final JsonMapper json;
+    private final RunAccounting accounting;
+    private final DatabaseWork database;
     private final ThreadPoolExecutor coordinator = pool(1, 1, "lab-run-coordinator");
     private final ThreadPoolExecutor workers = pool(50, 50, "lab-run-http");
     private final ThreadPoolExecutor transport = pool(16, 256, "lab-run-transport");
@@ -59,6 +62,7 @@ public class RunEngine {
     private volatile int port;
     private volatile Work active;
     private volatile boolean stopping;
+    private volatile boolean startupComplete;
 
     private static final class Work {
         final UUID id;
@@ -73,16 +77,38 @@ public class RunEngine {
         }
     }
 
-    public RunEngine(RunStore store, RunGuard guard, LabProperties lab, JsonMapper json) {
+    public RunEngine(RunStore store, RunGuard guard, LabProperties lab, JsonMapper json,
+                     RunAccounting accounting, DatabaseWork database) {
         this.store = store; this.guard = guard; this.lab = lab; this.json = json;
+        this.accounting = accounting; this.database = database;
     }
 
     @EventListener
     public void port(WebServerInitializedEvent event) { port = event.getWebServer().getPort(); }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void interruptOldRuns() {
+        for (UUID run : store.unfinished()) {
+            guard.begin(run, 120);
+            try (var scope = guard.local(run)) {
+                store.fixtures(run).forEach(fixture -> guard.own(fixture.productId()));
+                guard.seal();
+                store.state(run, "INTERRUPTED");
+                var result = accounting.reconcile(run, true, 0);
+                result.put("elapsedMs", null);
+                result.put("databaseWork", "Pre-crash in-memory counters unavailable; not reconstructed from HTTP counts.");
+                store.finish(run, "INTERRUPTED", result, "Process restarted before the final result was persisted.");
+                guard.finish();
+            }
+        }
+        startupComplete = true;
+    }
+
     public synchronized Map<String, Object> start(RunParameters parameters) {
         requireDemo();
-        if (stopping || port == 0) { throw ApiException.unavailable("RUN_UNAVAILABLE", "Runner is not accepting work."); }
+        if (stopping || !startupComplete || port == 0) {
+            throw ApiException.unavailable("RUN_UNAVAILABLE", "Runner is not accepting work.");
+        }
         UUID id = UUID.randomUUID();
         String token = guard.begin(id, parameters.durationSeconds());
         var work = new Work(id, token, parameters);
@@ -92,6 +118,7 @@ public class RunEngine {
                     "readDelayMs", lab.readDelayMs(), "purchaseDelayMs", lab.purchaseDelayMs(),
                     "initialCache", "COLD_NEW_FIXTURE", "seedMeaning", "Jitter only; OS/DB scheduling is not deterministic"));
             active = work;
+            database.begin(id);
             coordinator.execute(() -> execute(work));
             return store.snapshot(id);
         } catch (RuntimeException failure) {
@@ -105,6 +132,7 @@ public class RunEngine {
         Work work = active;
         if (work != null && work.id.equals(id)) {
             work.cancel.set(true);
+            guard.seal();
             store.state(id, "DRAINING");
         }
         return store.snapshot(id);
@@ -127,19 +155,26 @@ public class RunEngine {
                 throw new IllegalStateException("Server requests exceeded the drain bound; runner remains fenced.");
             }
             String state = work.cancel.get() ? "CANCELLED" : System.nanoTime() >= work.deadline ? "INCONCLUSIVE" : "COMPLETED";
-            var results = new LinkedHashMap<String, Object>();
-            results.put("quiescent", true);
-            results.put("elapsedMs", (System.nanoTime() - work.started) / 1_000_000.0);
+            var results = accounting.reconcile(work.id, false, (System.nanoTime() - work.started) / 1_000_000.0);
+            double elapsed = (System.nanoTime() - work.started) / 1_000_000.0;
+            results.put("elapsedMs", elapsed);
+            results.put("http", RunAccounting.httpMetrics(store.attempts(work.id), elapsed));
             results.put("intendedBuyers", work.parameters.buyers());
-            results.put("invariantVerdict", "NOT_EVALUATED");
-            results.put("note", "HTTP results persisted separately from inventory correctness.");
+            long measured = store.attempts(work.id).stream().filter(a -> "MEASURED".equals(a.get("phase"))).count();
+            results.put("completion", measured == work.parameters.buyers() && "COMPLETED".equals(state)
+                    ? "ALL_BUYERS_DISPATCHED" : "PARTIAL");
+            results.put("databaseWork", database.snapshot());
+            results.put("databaseMeasurement", "Actual JDBC execute attempts until finalization, including failures/rollbacks; "
+                    + "LISTENER_ADMIN includes background listener calls during the run. Commit/rollback and row decoding excluded.");
+            if ("INCONCLUSIVE".equals(state)) { results.put("invariantVerdict", "INCONCLUSIVE"); }
+            if ("INCONCLUSIVE".equals(results.get("invariantVerdict")) && "COMPLETED".equals(state)) { state = "INCONCLUSIVE"; }
             store.finish(work.id, state, results, null);
             release(work);
         } catch (RuntimeException failure) {
             LOG.error("Experiment stopped without a success verdict (runId={}, type={})",
                     work.id, failure.getClass().getSimpleName(), failure);
             guard.seal();
-            if (guard.inFlight() == 0) {
+            if (guard.inFlight() == 0 && workers.getActiveCount() == 0) {
                 try {
                     store.finish(work.id, "FAILED", Map.of("invariantVerdict", "INCONCLUSIVE", "quiescent", true),
                             "Experiment failed; inspect bounded server logs and persisted attempts.");
@@ -187,8 +222,11 @@ public class RunEngine {
             } catch (java.util.concurrent.ExecutionException failure) {
                 work.cancel.set(true);
                 // Drain every submitted worker even if one failed to persist its response.
+                long drainDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
                 for (var task : pending) {
-                    try { task.get(30, TimeUnit.SECONDS); }
+                    long remaining = drainDeadline - System.nanoTime();
+                    if (remaining <= 0) { break; }
+                    try { task.get(remaining, TimeUnit.NANOSECONDS); }
                     catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); break; }
                     catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException drain) {
                         LOG.warn("Run worker drain issue (type={})", drain.getClass().getSimpleName());
@@ -234,7 +272,9 @@ public class RunEngine {
         }
     }
 
-    private synchronized void release(Work work) { guard.finish(); if (active == work) { active = null; } }
+    private synchronized void release(Work work) {
+        guard.finish(); database.end(); if (active == work) { active = null; }
+    }
 
     public void requireDemo() {
         if (!lab.demoEnabled()) {

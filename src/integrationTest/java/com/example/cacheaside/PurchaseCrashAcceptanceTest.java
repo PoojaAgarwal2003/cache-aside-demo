@@ -102,12 +102,12 @@ class PurchaseCrashAcceptanceTest {
         }
     }
 
-    private static final class Child implements AutoCloseable {
+    static final class Child implements AutoCloseable {
         private final PostgresFixture database;
         private final RedisFixture redis;
         private final Path directory = Files.createTempDirectory("flashsale-crash-child-");
         private final Path ready = directory.resolve("ready");
-        private final Path boundary = directory.resolve("boundary");
+        final Path boundary = directory.resolve("boundary");
         private final Path arguments = directory.resolve("java.args");
         private final Path log = directory.resolve("child.log");
         private Process process;

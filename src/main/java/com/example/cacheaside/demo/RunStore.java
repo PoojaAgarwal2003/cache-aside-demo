@@ -69,12 +69,16 @@ public class RunStore {
     }
 
     public void event(UUID run, String kind, Object detail) {
-        jdbc.update("INSERT INTO demo_run_events(run_id,kind,detail) VALUES (?,?,?::jsonb)",
-                run, kind, json.writeValueAsString(detail));
-        jdbc.update("""
-                DELETE FROM demo_run_events WHERE run_id=? AND sequence <
-                (SELECT sequence FROM demo_run_events WHERE run_id=? ORDER BY sequence DESC OFFSET 255 LIMIT 1)
-                """, run, run);
+        transaction.executeWithoutResult(tx -> {
+            jdbc.queryForList("SELECT run_id FROM demo_runs WHERE run_id=? FOR UPDATE", run);
+            jdbc.update("UPDATE demo_runs SET events_created=events_created+1 WHERE run_id=?", run);
+            jdbc.update("INSERT INTO demo_run_events(run_id,kind,detail) VALUES (?,?,?::jsonb)",
+                    run, kind, json.writeValueAsString(detail));
+            jdbc.update("""
+                    DELETE FROM demo_run_events WHERE run_id=? AND sequence <
+                    (SELECT sequence FROM demo_run_events WHERE run_id=? ORDER BY sequence DESC OFFSET 255 LIMIT 1)
+                    """, run, run);
+        });
     }
 
     public void finish(UUID run, String state, Object result, String error) {
@@ -138,6 +142,10 @@ public class RunStore {
                 """);
     }
 
+    public List<UUID> unfinished() {
+        return jdbc.query("SELECT run_id FROM demo_runs WHERE active", (row, i) -> row.getObject(1, UUID.class));
+    }
+
     public Map<String, Object> events(UUID run, long after, int limit) {
         snapshot(run);
         var events = jdbc.query("""
@@ -146,8 +154,13 @@ public class RunStore {
                 "kind", row.getString("kind"), "detail", json.readTree(row.getString("detail")),
                 "at", row.getTimestamp("created_at").toInstant()), run, after, limit);
         Long first = jdbc.queryForObject("SELECT min(sequence) FROM demo_run_events WHERE run_id=?", Long.class, run);
+        long retained = jdbc.queryForObject("SELECT count(*) FROM demo_run_events WHERE run_id=?", Long.class, run);
+        long generated = jdbc.queryForObject("SELECT events_created FROM demo_runs WHERE run_id=?", Long.class, run);
         long cursor = events.isEmpty() ? after : (long) events.get(events.size() - 1).get("sequence");
         return Map.of("events", events, "nextCursor", cursor, "earliestCursor", first == null ? 0 : first,
-                "gap", first != null && after > 0 && after < first - 1, "retentionLimit", 256);
+                "gap", first != null && after > 0 && after < first - 1, "retentionLimit", 256,
+                "truncated", generated > retained, "droppedEvents", generated - retained,
+                "hasMore", jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM demo_run_events WHERE run_id=? AND sequence>?)",
+                        Boolean.class, run, cursor));
     }
 }
