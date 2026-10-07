@@ -7,14 +7,22 @@ when Redis fails?**
 lab**, built with Java, real PostgreSQL and Redis. There are no payments,
 customer data, cloud services or production-readiness claims.
 
-**Milestone 5 of 6 is implemented:** all five inventory strategies and durable
+![Actual FlashSale Lab dashboard showing a persisted five-strategy comparison](docs/assets/comparison.png)
+
+Actual Chromium capture from the running app, not a mockup. The screenshot uses
+**200ms read / 25ms purchase synthetic delays**, not benchmark timing.
+[Capture provenance and raw runs](docs/results.md) | [Recording scripts](docs/demo.md)
+
+**Milestone 6 of 6:** all five inventory strategies and durable
 idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
 The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
 drain/cancellation, ledger reconciliation, six guided scenarios and JSON export.
 The local-asset dashboard adds six guided views, five-way comparison, showcase
-layout and an asserted Bruno collection. **Pause before milestone 6**, which
-covers repeatable benchmarks and polished presentation/recordings.
+layout and an asserted Bruno collection. Repeatable zero-delay benchmarks retain
+raw warmup/trial exports; whole-app/Redis/PostgreSQL lifecycle verification uses a
+separate real Compose project. Real screenshots and recording scripts complete
+the presentation; no video or scalability result is invented.
 [The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
@@ -32,6 +40,9 @@ After starting the app, open `http://127.0.0.1:8080/` (or your configured port).
 .\scripts\flash-sale.ps1 -Compare -OutFile comparison.json
 .\scripts\fire-requests.ps1 -Json '{"scenario":"COLD_WARM"}' -OutFile reads.json
 ```
+
+[Measured observations](docs/results.md) | [Repeatable benchmarks](docs/benchmarks.md)
+| [Full Compose lifecycle gate](docs/walkthrough.md)
 
 [Experiments](docs/experiments.md) explains parameters, cancellation, scenarios,
 cursor events, measured SQL work and why HTTP counts alone cannot prove safety.
@@ -128,5 +139,19 @@ routine stop or test step.
 ```
 
 An unavailable container runtime must fail acceptance, never silently skip it.
-The dashboard, browser suite and repeated benchmark presentation belong
-to later milestones; there is no mock dashboard or invented screenshot.
+The Java, browser and Compose gates are independent. Missing Docker fails the
+container gates rather than silently skipping them. To repeat zero-delay trials:
+
+```powershell
+# Terminal 1:
+.\scripts\start.ps1 -Profile benchmark
+# Terminal 2 (Node 22+ development tool, no npm install required):
+.\scripts\benchmark.ps1 -Warmups 2 -Trials 5 -OutDirectory benchmark-results\comparison
+# Separate isolated full-lifecycle gate; owns its own app and Compose project:
+.\scripts\walkthrough.ps1 -OutDirectory walkthrough-results\local
+```
+
+Bash equivalents: `./scripts/start.sh benchmark`,
+`./scripts/benchmark.sh --warmups 2 --trials 5`, `./scripts/walkthrough.sh`.
+All load targets are fixed loopback. No script resets existing lab inventory,
+deletes named volumes or changes a request's strategy during failure.

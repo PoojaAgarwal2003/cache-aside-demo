@@ -2,10 +2,11 @@
 
 - This is a **single application-instance local educational lab**, not a
   production inventory service or distributed-system certification.
-- Milestone 5 implements all five strategies, advisory Redis admission, typed
+- Milestone 6 implements all five strategies, advisory Redis admission, typed
   product caching, listener recovery, bounded rebuilds, separate breakers and a
   lab limiter, a persisted HTTP experiment runner and the local dashboard.
-  Repeated benchmark/presentation work remains milestone 6.
+  Repeated benchmarks and presentation use actual retained evidence, not
+  scalability or statistical-certification claims.
 - No real payment is performed. Atomic stock/ledger commit and durable key
   deduplication do not imply exactly-once request execution or payment delivery.
 - `X-Client-Id` is a spoofable lab identity, not authentication. Keys have meaning
@@ -69,9 +70,10 @@
   evidence**. The default Testcontainers path must fail, not skip, if Docker is
   missing. The author machine has no Docker runtime; see the evidence record.
 - Real Redis shutdown, forced Java-process death and actual Chromium dashboard
-  failure/recovery are tested. Full Compose walkthrough and repeatable benchmark/
-  presentation acceptance remain milestone 6. No performance result is inferred
-  from a UI screenshot or a short demonstration.
+  failure/recovery have dedicated coverage. Full Compose lifecycle, raw benchmark
+  and screenshot gates are separate; consult the exact tagged CI result rather
+  than treating native evidence as Docker execution. No performance result is
+  inferred from a UI screenshot or a short demonstration.
 - Browser automation currently targets pinned Chromium, not a cross-browser
   certification. Node/Bruno/Playwright are development dependencies only.
   Eight-second browser timeouts and capped polling retries never automatically
@@ -88,3 +90,13 @@
 - At most 256 events survive per run, with explicit gaps and dropped counts.
   Runs/products/attempts/keys remain until an administrator manages the
   disposable database; this is not a public long-term retention service.
+- Repeated trials use fixed case order, fresh cold fixtures and one JVM.
+  Warmups do not eliminate JIT/GC/OS-load bias. Pooled raw samples are correlated;
+  with fewer than 100 samples p99 is the maximum. No confidence interval,
+  production speedup or strategy ranking is claimed from these small runs.
+- Generated Compose walkthrough projects retain stopped containers and named
+  volumes deliberately. Repeated invocation consumes disk until their owner
+  explicitly manages them; there is no automatic destructive housekeeping.
+- Presentation contains genuine screenshots and recording scripts, not a
+  recorded video. Only Chromium is automated; no broad accessibility audit,
+  other-browser support certification or public deployment is implied.

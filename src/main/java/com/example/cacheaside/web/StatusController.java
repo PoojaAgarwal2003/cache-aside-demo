@@ -25,7 +25,7 @@ public class StatusController {
     @GetMapping("/status")
     public Status status() {
         jdbc.queryForObject("SELECT 1", Integer.class);
-        return new Status("FlashSale Lab", 5, "AVAILABLE", cache.status().readiness().name(),
+        return new Status("FlashSale Lab", 6, "AVAILABLE", cache.status().readiness().name(),
                 properties.demoEnabled(), properties.readDelayMs(), properties.purchaseDelayMs(),
                 List.of("PRODUCT_API", "ATOMIC_SQL", "PESSIMISTIC", "OPTIMISTIC",
                         "DEMO_ONLY_UNSAFE_NONE", "REDIS_ASSISTED", "PERSISTED_IDEMPOTENCY", "ADMISSION_RECONCILIATION",

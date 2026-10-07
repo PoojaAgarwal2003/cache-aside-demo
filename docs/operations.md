@@ -234,6 +234,9 @@ are checked in CI. Windows execution does not depend on these files.
 | Run coordinator / worker / transport pools | 1 / 50 / 16 | Queue bounds 1 / 50 / 256; no HTTP-server executor reuse |
 | Run dispatch / HTTP / drain / verification | 60 / 20 / 30 / 10 seconds | Dispatch configurable 1-120s; later bounded settlement can extend total duration |
 | Retained events / page size / recent runs | 256 / 100 / 20 | Cursor gaps explicit; final results and attempts retained separately |
+| Benchmark warmups / measured trials | 2 / 5 | Bounds 1-5 / 2-20; warmups excluded, fresh fixtures, same JVM |
+| Benchmark delay/profile gate | 0 / 0 ms, benchmark | Refuses demo/default or nonzero actual delays; raw evidence retained |
+| Benchmark HTTP / run wait / cleanup | 8 / 180 / 45 seconds | Fixed local endpoints; failed/ambiguous outcomes are not automatically retried |
 | JSON body / headers | 8192 bytes / 8 KB | Chunked bodies also bounded |
 | Product initial/reset stock | 0-1000000 | No negative API reset |
 | Purchase quantity | 1-1000 | No coercion; omitted body alone defaults to 1 |

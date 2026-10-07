@@ -1,5 +1,63 @@
 # Acceptance evidence
 
+## Milestone 6: repeatability, lifecycle and presentation
+
+Recorded **2026-10-07**, app **0.6.0**, before publication. Windows x64,
+Temurin 17.0.20.1+1, PostgreSQL 16.15 native and real Redis 7.4.11 in WSL,
+Node 22.17.0, Playwright 1.63.0 Chromium and Bruno 4.2.0.
+
+| Gate | Actual local result |
+|---|---|
+| PowerShell 5.1 full `verify.ps1` | **104 passed: 13 unit + 91 integration**, zero failures/errors/skips |
+| Node unit gate | **8 passed**; bounded benchmark options, nearest ranks, empty/small samples and correct raw pooling |
+| PowerShell 5.1 `verify.ps1 -BrowserOnly` | **19 passed**, no test retries: browser/failure/accessibility, native Bruno, repeated benchmarks, whole-app lifecycle and real presentation capture |
+| Zero-delay benchmark | 2 excluded warmups + 5 measured comparisons, 250 attempts per strategy; raw exports and host/runtime/delay disclosure retained |
+| Actual PowerShell 5.1 benchmark wrapper | COLD_WARM: 1 warmup + 2 measured trials; correct sources, raw exports and one SQL read per trial |
+| Cancellation regression | Abort after real benchmark run acceptance; only that run cancelled/drained, FAILED manifest retained, no fake success |
+| Packaging | Six local runtime assets; no test host or dependency fixture class shipped |
+
+Native commands:
+
+```powershell
+powershell.exe -NoProfile -File .\scripts\verify.ps1 `
+  -NativePostgresPort 15439 -NativeRedisWsl FlashSaleLab-Test `
+  -NativeRedisBinary /opt/flashsale/redis-7.4.11/src/redis-server
+powershell.exe -NoProfile -File .\scripts\verify.ps1 -BrowserOnly `
+  -NativePostgresPort 15439 -NativeRedisWsl FlashSaleLab-Test `
+  -NativeRedisBinary /opt/flashsale/redis-7.4.11/src/redis-server
+```
+
+The first benchmark attempt found the owned PostgreSQL launcher had omitted its
+explicit test port and started on 5432, not 15439. It failed loudly rather than
+skipping. Restarting only that owned cluster with its explicit loopback/test
+port resolved the prerequisite; targeted and full gates then passed.
+
+The shared lifecycle driver traversed five strategies, cold/warm, stampede,
+stale generation, quantity-two lost-response replay, real Redis stop/start,
+limiter bypass, changed Redis process identity with preserved data, active JVM
+termination and two restarts retaining durable exports without redispatch.
+All protected 50/10 cases passed; the controlled unsafe race remains separately
+covered by existing Java acceptance. General samples are not forced to fail.
+
+Selected screenshot/benchmark/lifecycle raw artifacts are deliberately retained
+under `docs/assets/` and `docs/evidence/milestone-6/`, with hashes, sample counts,
+runtime/CPU details, disclosure and actual numbers in [results.md](results.md).
+The full run logs are private local session artifacts. No personal paths,
+secrets, generated host arguments or production claims are in published evidence.
+
+**Publication gate:** the exact `milestone-6` commit must pass three independent
+[GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions) jobs:
+`acceptance`, `browser`, and `compose-walkthrough`. The latter uses actual
+Compose services, direct `psql` stock/ledger comparison, PostgreSQL restart
+and repeated zero-delay trials. The author's machine has no Docker CLI/runtime;
+native results do **not** prove that gate. This pre-push document does not claim
+CI success; publication is verified only after all three jobs complete.
+Compose CI raw artifacts are retained 30 days; selected local evidence above
+is persistent in Git. Recorded videos and cross-browser certification are not
+claimed; complete [recording scripts](demo.md) are included.
+
+---
+
 ## Milestone 5: dashboard, guided views and API exploration
 
 Recorded **2026-10-06** before publication. The packaged **0.5.0** app was
@@ -60,7 +118,10 @@ The publication gate is the `milestone-5` commit's **acceptance and browser**
 jobs in [GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions).
 They run with actual PostgreSQL/Redis containers and retain real browser
 artifacts for seven days. This pre-push record does not substitute for their
-success; delivery is complete only when both jobs pass. Pause before milestone 6.
+success; delivery is complete only when both jobs pass. Both jobs subsequently
+passed for `138ac0e95a60580fd1e97770f142782e1f726906` in
+[run 37451478061](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37451478061).
+Milestone 6 was paused there and subsequently authorized above.
 
 ---
 

@@ -1,10 +1,11 @@
-# Architecture: delivered slice and future boundaries
+# Architecture and measured boundaries
 
 **One host application instance, one dedicated PostgreSQL database, one Redis
-service.** Milestone 5 implements five purchase strategies, one durable ledger/
+service.** Milestone 6 implements five purchase strategies, one durable ledger/
 idempotency boundary and advisory Redis admission, plus typed eventual caching,
 coordinated listener recovery and separate Redis cache/admission/limiter breakers,
-plus persisted real-HTTP experiments and their same-origin dashboard.
+plus persisted real-HTTP experiments, their same-origin dashboard and repeatable
+benchmark/lifecycle tooling. No benchmark client implements a second ledger.
 
 ```mermaid
 flowchart LR
@@ -234,7 +235,35 @@ flowchart LR
 | Fenced fill, listener and actual preserved-data restart | `ProductCacheClientAcceptanceTest.java`, `CacheInvalidationAcceptanceTest.java`, `CacheResilienceAcceptanceTest.java` |
 | Atomic quota, boundaries, headers and fail-open overload | `RateLimitAcceptanceTest.java` |
 | PowerShell-first operation | `scripts/` |
+| Same-origin dashboard, guides and bounded event rendering | `src/main/resources/static/dashboard*.js`, `index.html`, `dashboard.css` |
+| Asserted API walkthrough, including PATCH/partial PUT and replay | `bruno/`, `tests/browser/bruno.spec.mjs` |
+| Zero-delay repeated trials and sample-aware raw evidence | `scripts/benchmark.mjs`, `scripts/lab-client.mjs`, `tests/unit/benchmark.test.mjs` |
+| Owned Compose process/dependency lifecycle and direct ledger check | `scripts/walkthrough.mjs`, `scripts/walkthrough-scenarios.mjs`, `tests/browser/lifecycle.spec.mjs` |
+| Actual screenshots and benchmark presentation provenance | `tests/browser/presentation.spec.mjs`, `docs/results.md` |
 
 Java package paths above are relative to
 `src/main/java/com/example/cacheaside`; SQL paths are relative to
-`src/main/resources`. Integration suites are under `src/integrationTest`.
+`src/main/resources`. Explicit `src/`, `scripts/`, `tests/`, `docs/` and `bruno/`
+paths are repository-relative. Integration suites are under `src/integrationTest`.
+
+## Benchmark and lifecycle evidence
+
+```mermaid
+flowchart LR
+    Profile[Benchmark profile: both delays zero] --> Trials[Excluded warmups then measured trials]
+    Trials --> Runner[Same persisted HTTP runner]
+    Runner --> Raw[Unchanged exports per run]
+    Raw --> Summary[Sample-aware raw percentile pooling]
+    Raw --> PerTrial[Retained safety / liveness / SQL / interval per case]
+    Owner[Terminal-only lifecycle owner] --> Compose[Unique Compose project and volumes]
+    Owner --> JVM[Owned packaged JVM]
+    Compose --> Fault[Real Redis and PostgreSQL restart]
+    JVM --> Interrupted[Forced process death yields INTERRUPTED]
+    Fault --> Retained[Compare retained exports and committed ledger]
+    Interrupted --> Retained
+```
+
+Warmups use fresh fixtures and do not prewarm later products. Fixed strategy
+order and correlated local samples remain biases; there is no averaged-percentile
+or production-throughput claim. The lifecycle owner has no web control endpoint.
+It stops only its generated project and child JVM and never deletes volumes.

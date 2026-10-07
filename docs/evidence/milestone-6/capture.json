@@ -1,0 +1,27 @@
+{
+  "capturedAt": "2026-10-07T05:34:01.732Z",
+  "comparisonRunId": "0386c435-81e2-4b1d-9975-5a4fc74309b3",
+  "coldWarmRunId": "e431c145-2ff5-4f7a-b687-dc7e1a6a4d93",
+  "appVersion": "0.6.0",
+  "syntheticDelays": {
+    "readMs": 200,
+    "purchaseMs": 25
+  },
+  "screenshots": [
+    {
+      "name": "comparison.png",
+      "sha256": "d9f50fe47038c714d341253205db24870dcd0315ee6ee05f04fe348fa6179e44",
+      "bytes": 293067
+    },
+    {
+      "name": "cold-warm.png",
+      "sha256": "9f9982051de7b6a9f1797ae3e218652531f4f8e29b8fe80102ae60a8daa5e2d4",
+      "bytes": 449468
+    },
+    {
+      "name": "mobile.png",
+      "sha256": "b86df5e9332346a8e4bb5842822923aea8eb7ce05b32780dfd5d2a5d8930b872",
+      "bytes": 464028
+    }
+  ]
+}

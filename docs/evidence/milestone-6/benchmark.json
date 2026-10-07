@@ -1,0 +1,2091 @@
+{
+  "schemaVersion": 1,
+  "state": "COMPLETED",
+  "startedAt": "2026-10-07T05:34:18.804Z",
+  "config": {
+    "warmups": 2,
+    "trials": 5,
+    "scenario": "COMPARE",
+    "buyers": 50,
+    "concurrency": 10,
+    "stock": 10,
+    "quantity": 1,
+    "seed": 1
+  },
+  "server": {
+    "application": "FlashSale Lab",
+    "milestone": 6,
+    "database": "AVAILABLE",
+    "cache": "READY",
+    "mutationsEnabled": true,
+    "readDelayMs": 0,
+    "purchaseDelayMs": 0,
+    "capabilities": [
+      "PRODUCT_API",
+      "ATOMIC_SQL",
+      "PESSIMISTIC",
+      "OPTIMISTIC",
+      "DEMO_ONLY_UNSAFE_NONE",
+      "REDIS_ASSISTED",
+      "PERSISTED_IDEMPOTENCY",
+      "ADMISSION_RECONCILIATION",
+      "GENERATION_FENCED_CACHE",
+      "INVALIDATE_ONLY_LISTENER",
+      "BOUNDED_REBUILD_LEASES",
+      "INDEPENDENT_REDIS_BREAKERS",
+      "SLIDING_WINDOW_RATE_LIMIT",
+      "PERSISTED_HTTP_EXPERIMENTS",
+      "DRAINED_LEDGER_ACCOUNTING",
+      "GUIDED_SCENARIOS",
+      "CURSOR_EVENTS_AND_EXPORT",
+      "LOCAL_DASHBOARD",
+      "GUIDED_VIEWS",
+      "SHOWCASE_LAYOUT",
+      "BRUNO_COLLECTION",
+      "REPEATED_BENCHMARKS"
+    ],
+    "profiles": [
+      "benchmark"
+    ],
+    "runtime": {
+      "postgres": "16.15",
+      "maxHeapBytes": 17171480576,
+      "availableProcessors": 16,
+      "java": "17.0.20.1",
+      "vm": "OpenJDK 64-Bit Server VM"
+    }
+  },
+  "host": {
+    "platform": "win32",
+    "release": "10.0.28000",
+    "architecture": "x64",
+    "cpu": "Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz",
+    "logicalCpus": 16,
+    "memoryBytes": 68665831424,
+    "node": "v22.17.0"
+  },
+  "method": {
+    "warmups": "Whole HTTP runs excluded from aggregates; same JVM, fresh cold fixtures and identities on every run.",
+    "order": "Sequential trials; COMPARE uses the fixed backend strategy order recorded in cases. Order/JIT/host-load bias remains.",
+    "cache": "Each run starts COLD_NEW_FIXTURE; COLD_WARM observes its own first and second reads. Warmup does not prewarm later fixtures.",
+    "throughput": "Retain each backend run-wide denominator; no sum of case throughput, average of percentiles, or speedup claim.",
+    "limits": "One run at a time; 60s dispatch plus bounded drain. Small local samples are observations, not service SLAs."
+  },
+  "runs": [
+    {
+      "phase": "WARMUP",
+      "runId": "ac2b6e17-519a-4aee-b06e-01882b72aecc",
+      "file": "ac2b6e17-519a-4aee-b06e-01882b72aecc.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "WARMUP",
+      "runId": "d2518686-d83f-4c6e-9723-4185573b0a14",
+      "file": "d2518686-d83f-4c6e-9723-4185573b0a14.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "MEASURED",
+      "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+      "file": "002676e5-72a1-4924-9738-bf0d495ccbbe.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "MEASURED",
+      "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+      "file": "9a49a6b1-7a25-4587-8933-b5e300a996ec.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "MEASURED",
+      "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+      "file": "22113110-ac00-46f3-8ada-72c70fa8fad0.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "MEASURED",
+      "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+      "file": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2.json",
+      "state": "COMPLETED"
+    },
+    {
+      "phase": "MEASURED",
+      "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+      "file": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385.json",
+      "state": "COMPLETED"
+    }
+  ],
+  "cases": [
+    {
+      "label": "NONE",
+      "strategy": "NONE",
+      "unsafe": true,
+      "trials": [
+        {
+          "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 31.9371,
+              "p95": 44.304701,
+              "p99": 44.304701,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 16.000199,
+              "p95": 38.8112,
+              "p99": 44.304701,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 805.8227,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 62.048388559915225,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 205.361808
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 442.365494
+            }
+          },
+          "runElapsedMs": 874.2729
+        },
+        {
+          "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 22.5577,
+              "p95": 33.7415,
+              "p99": 33.7415,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 10.0475,
+              "p95": 28.8727,
+              "p99": 33.7415,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 789.9167,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 63.29781355426465,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 173.640876
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 452.210004
+            }
+          },
+          "runElapsedMs": 870.605599
+        },
+        {
+          "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 33.059501,
+              "p95": 42.771699,
+              "p99": 42.771699,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 11.3186,
+              "p95": 40.2715,
+              "p99": 42.771699,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 999.4651,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 50.02675931355682,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 259.288092
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 743.798007
+            }
+          },
+          "runElapsedMs": 1070.9408
+        },
+        {
+          "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+          "inventoryVerdict": "FAIL",
+          "finalStock": -1,
+          "uniqueSales": 11,
+          "soldQuantity": 11,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 22.4443,
+              "p95": 34.8374,
+              "p99": 34.8374,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 11
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 8.778899,
+              "p95": 29.981,
+              "p99": 34.8374,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 39,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 828.822599,
+            "successfulResponses": 11,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 60.326540396372565,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 161,
+              "control": 150,
+              "executeMs": 204.118587
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 553.850802
+            }
+          },
+          "runElapsedMs": 896.629899
+        },
+        {
+          "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+          "inventoryVerdict": "FAIL",
+          "finalStock": -1,
+          "uniqueSales": 11,
+          "soldQuantity": 11,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 19.3337,
+              "p95": 30.877501,
+              "p99": 30.877501,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 11
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 7.466099,
+              "p95": 24.714001,
+              "p99": 30.877501,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 39,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 658.3248,
+            "successfulResponses": 11,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 75.9503515589873,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 161,
+              "control": 150,
+              "executeMs": 172.382582
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 479.344395
+            }
+          },
+          "runElapsedMs": 714.8936
+        }
+      ],
+      "trialCount": 5,
+      "allAttemptLatency": {
+        "sampleCount": 250,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 10.4154,
+        "p95": 33.059501,
+        "p99": 41.7723,
+        "warning": "Local correlated samples, not independent trials or a service SLA."
+      },
+      "successLatency": {
+        "sampleCount": 52,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 25.3452,
+        "p95": 41.7723,
+        "p99": 44.304701,
+        "warning": "Fewer than 100 samples: p99 is the maximum; tail estimates are especially weak."
+      }
+    },
+    {
+      "label": "ATOMIC_SQL",
+      "strategy": "ATOMIC_SQL",
+      "unsafe": false,
+      "trials": [
+        {
+          "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 28.2306,
+              "p95": 41.729601,
+              "p99": 41.729601,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 11.527,
+              "p95": 36.4487,
+              "p99": 41.729601,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 805.8227,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 62.048388559915225,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 140,
+              "failed": 0,
+              "writes": 200,
+              "control": 150,
+              "executeMs": 205.851024
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 532.092517
+            }
+          },
+          "runElapsedMs": 874.2729
+        },
+        {
+          "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 23.779001,
+              "p95": 33.7886,
+              "p99": 33.7886,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 11.4082,
+              "p95": 30.3752,
+              "p99": 33.7886,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 789.9167,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 63.29781355426465,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 140,
+              "failed": 0,
+              "writes": 200,
+              "control": 150,
+              "executeMs": 194.876417
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 511.248681
+            }
+          },
+          "runElapsedMs": 870.605599
+        },
+        {
+          "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 28.4025,
+              "p95": 76.787,
+              "p99": 76.787,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 11.5369,
+              "p95": 86.257099,
+              "p99": 106.4219,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 999.4651,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 50.02675931355682,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 140,
+              "failed": 0,
+              "writes": 200,
+              "control": 150,
+              "executeMs": 961.371902
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 636.699094
+            }
+          },
+          "runElapsedMs": 1070.9408
+        },
+        {
+          "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 19.075701,
+              "p95": 28.859599,
+              "p99": 28.859599,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 8.630901,
+              "p95": 24.9825,
+              "p99": 28.859599,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 828.822599,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 60.326540396372565,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 140,
+              "failed": 0,
+              "writes": 200,
+              "control": 150,
+              "executeMs": 177.006989
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 513.466695
+            }
+          },
+          "runElapsedMs": 896.629899
+        },
+        {
+          "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 17.867299,
+              "p95": 27.6295,
+              "p99": 27.6295,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 7.747599,
+              "p95": 23.6762,
+              "p99": 27.6295,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 658.3248,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 75.9503515589873,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 140,
+              "failed": 0,
+              "writes": 200,
+              "control": 150,
+              "executeMs": 146.937823
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 430.511493
+            }
+          },
+          "runElapsedMs": 714.8936
+        }
+      ],
+      "trialCount": 5,
+      "allAttemptLatency": {
+        "sampleCount": 250,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 10.3493,
+        "p95": 38.8866,
+        "p99": 86.257099,
+        "warning": "Local correlated samples, not independent trials or a service SLA."
+      },
+      "successLatency": {
+        "sampleCount": 50,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 24.4465,
+        "p95": 64.540099,
+        "p99": 76.787,
+        "warning": "Fewer than 100 samples: p99 is the maximum; tail estimates are especially weak."
+      }
+    },
+    {
+      "label": "PESSIMISTIC",
+      "strategy": "PESSIMISTIC",
+      "unsafe": false,
+      "trials": [
+        {
+          "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 22.169899,
+              "p95": 33.260899,
+              "p99": 33.260899,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 10.784101,
+              "p95": 29.1328,
+              "p99": 33.260899,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 805.8227,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 62.048388559915225,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 239.564399
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 396.679805
+            }
+          },
+          "runElapsedMs": 874.2729
+        },
+        {
+          "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 22.9457,
+              "p95": 36.4709,
+              "p99": 36.4709,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 11.3493,
+              "p95": 28.9883,
+              "p99": 36.4709,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 789.9167,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 63.29781355426465,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 258.895198
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 508.6403
+            }
+          },
+          "runElapsedMs": 870.605599
+        },
+        {
+          "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 23.351201,
+              "p95": 33.0847,
+              "p99": 33.0847,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 12.2765,
+              "p95": 30.4605,
+              "p99": 33.0847,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 999.4651,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 50.02675931355682,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 292.84541
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 650.47161
+            }
+          },
+          "runElapsedMs": 1070.9408
+        },
+        {
+          "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 40.513,
+              "p95": 51.332101,
+              "p99": 51.332101,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 9.3318,
+              "p95": 46.6892,
+              "p99": 51.332101,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 828.822599,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 60.326540396372565,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 217.176295
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 522.092092
+            }
+          },
+          "runElapsedMs": 896.629899
+        },
+        {
+          "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 21.086599,
+              "p95": 30.3058,
+              "p99": 30.3058,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 8.6795,
+              "p95": 25.9916,
+              "p99": 30.3058,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 658.3248,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 75.9503515589873,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 150,
+              "failed": 0,
+              "writes": 160,
+              "control": 150,
+              "executeMs": 196.535804
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 420.155093
+            }
+          },
+          "runElapsedMs": 714.8936
+        }
+      ],
+      "trialCount": 5,
+      "allAttemptLatency": {
+        "sampleCount": 250,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 10.6194,
+        "p95": 33.0847,
+        "p99": 46.6892,
+        "warning": "Local correlated samples, not independent trials or a service SLA."
+      },
+      "successLatency": {
+        "sampleCount": 50,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 25.2297,
+        "p95": 46.6892,
+        "p99": 51.332101,
+        "warning": "Fewer than 100 samples: p99 is the maximum; tail estimates are especially weak."
+      }
+    },
+    {
+      "label": "OPTIMISTIC",
+      "strategy": "OPTIMISTIC",
+      "unsafe": false,
+      "trials": [
+        {
+          "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 23.2416,
+              "p95": 42.4643,
+              "p99": 42.4643,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 9.671301,
+              "p95": 40.445501,
+              "p99": 42.4643,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 805.8227,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 62.048388559915225,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 216,
+              "failed": 0,
+              "writes": 204,
+              "control": 194,
+              "executeMs": 174.288118
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 441.04099
+            }
+          },
+          "runElapsedMs": 874.2729
+        },
+        {
+          "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 22.1255,
+              "p95": 47.741,
+              "p99": 47.741,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 10.398499,
+              "p95": 45.9238,
+              "p99": 49.3572,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 789.9167,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 63.29781355426465,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 228,
+              "failed": 0,
+              "writes": 212,
+              "control": 202,
+              "executeMs": 214.415603
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 499.295694
+            }
+          },
+          "runElapsedMs": 870.605599
+        },
+        {
+          "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 20.6818,
+              "p95": 48.2649,
+              "p99": 48.2649,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 10.5874,
+              "p95": 48.2649,
+              "p99": 54.9856,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 999.4651,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 50.02675931355682,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 225,
+              "failed": 0,
+              "writes": 210,
+              "control": 200,
+              "executeMs": 250.753606
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 621.097002
+            }
+          },
+          "runElapsedMs": 1070.9408
+        },
+        {
+          "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 24.259201,
+              "p95": 45.3756,
+              "p99": 45.3756,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 9.488201,
+              "p95": 41.820399,
+              "p99": 54.613,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 828.822599,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 60.326540396372565,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 231,
+              "failed": 0,
+              "writes": 214,
+              "control": 204,
+              "executeMs": 242.23122
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 543.373884
+            }
+          },
+          "runElapsedMs": 896.629899
+        },
+        {
+          "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 17.862401,
+              "p95": 37.9571,
+              "p99": 37.9571,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 7.589901,
+              "p95": 41.9484,
+              "p99": 47.52,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 658.3248,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 75.9503515589873,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 225,
+              "failed": 0,
+              "writes": 210,
+              "control": 200,
+              "executeMs": 164.230795
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 50,
+              "failed": 0,
+              "writes": 250,
+              "control": 0,
+              "executeMs": 432.723998
+            }
+          },
+          "runElapsedMs": 714.8936
+        }
+      ],
+      "trialCount": 5,
+      "allAttemptLatency": {
+        "sampleCount": 250,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 9.823,
+        "p95": 42.2293,
+        "p99": 50.462,
+        "warning": "Local correlated samples, not independent trials or a service SLA."
+      },
+      "successLatency": {
+        "sampleCount": 50,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 22.7177,
+        "p95": 45.3756,
+        "p99": 48.2649,
+        "warning": "Fewer than 100 samples: p99 is the maximum; tail estimates are especially weak."
+      }
+    },
+    {
+      "label": "REDIS_ASSISTED",
+      "strategy": "REDIS_ASSISTED",
+      "unsafe": false,
+      "trials": [
+        {
+          "runId": "002676e5-72a1-4924-9738-bf0d495ccbbe",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 41.2168,
+              "p95": 61.4717,
+              "p99": 61.4717,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 32.006701,
+              "p95": 52.5538,
+              "p99": 61.4717,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 805.8227,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 62.048388559915225,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 400,
+              "failed": 0,
+              "writes": 270,
+              "control": 360,
+              "executeMs": 320.879827
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 57,
+              "failed": 0,
+              "writes": 256,
+              "control": 2,
+              "executeMs": 262.544691
+            }
+          },
+          "runElapsedMs": 874.2729
+        },
+        {
+          "runId": "9a49a6b1-7a25-4587-8933-b5e300a996ec",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 35.676401,
+              "p95": 55.5331,
+              "p99": 55.5331,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 27.153101,
+              "p95": 47.4892,
+              "p99": 55.5331,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 789.9167,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 63.29781355426465,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 400,
+              "failed": 0,
+              "writes": 270,
+              "control": 360,
+              "executeMs": 279.332173
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 57,
+              "failed": 0,
+              "writes": 256,
+              "control": 2,
+              "executeMs": 248.483987
+            }
+          },
+          "runElapsedMs": 870.605599
+        },
+        {
+          "runId": "22113110-ac00-46f3-8ada-72c70fa8fad0",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 53.532501,
+              "p95": 76.7325,
+              "p99": 76.7325,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 27.162899,
+              "p95": 63.3999,
+              "p99": 76.7325,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 999.4651,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 50.02675931355682,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 400,
+              "failed": 0,
+              "writes": 270,
+              "control": 360,
+              "executeMs": 367.735993
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 57,
+              "failed": 0,
+              "writes": 256,
+              "control": 2,
+              "executeMs": 210.115109
+            }
+          },
+          "runElapsedMs": 1070.9408
+        },
+        {
+          "runId": "82e73dbc-be49-40f4-a934-f8d6dc6d47d2",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 43.1903,
+              "p95": 79.481799,
+              "p99": 79.481799,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 31.596901,
+              "p95": 73.341399,
+              "p99": 83.015101,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 828.822599,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 60.326540396372565,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 400,
+              "failed": 0,
+              "writes": 270,
+              "control": 360,
+              "executeMs": 277.851922
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 57,
+              "failed": 0,
+              "writes": 256,
+              "control": 2,
+              "executeMs": 250.526111
+            }
+          },
+          "runElapsedMs": 896.629899
+        },
+        {
+          "runId": "e9fd9b05-939e-4e12-ac6f-aa182ea7d385",
+          "inventoryVerdict": "PASS",
+          "finalStock": 0,
+          "uniqueSales": 10,
+          "soldQuantity": 10,
+          "conservation": true,
+          "http": {
+            "replays": 0,
+            "attempts": 50,
+            "responses": 50,
+            "successLatency": {
+              "p50": 37.269,
+              "p95": 55.6477,
+              "p99": 55.6477,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 10
+            },
+            "errorsOrUnknown": 0,
+            "buyersDispatched": 50,
+            "allAttemptLatency": {
+              "p50": 24.2655,
+              "p95": 43.820801,
+              "p99": 55.6477,
+              "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds.",
+              "sampleCount": 50
+            },
+            "businessRejections": 40,
+            "cacheWriteOutcomes": {},
+            "measurementWindowMs": 658.3248,
+            "successfulResponses": 10,
+            "terminalReadSources": {},
+            "httpAttemptsPerSecond": 75.9503515589873,
+            "throughputDenominator": "Recorded run-wide interval, not isolated case time or service capacity; case intervals stop before final ledger verification, normal final global interval includes it."
+          },
+          "databaseWork": {
+            "FALLBACK": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "PURCHASE": {
+              "reads": 400,
+              "failed": 0,
+              "writes": 270,
+              "control": 360,
+              "executeMs": 271.741685
+            },
+            "USER_READ": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "VERIFICATION": {
+              "reads": 0,
+              "failed": 0,
+              "writes": 0,
+              "control": 0,
+              "executeMs": 0
+            },
+            "LISTENER_ADMIN": {
+              "reads": 57,
+              "failed": 0,
+              "writes": 256,
+              "control": 2,
+              "executeMs": 270.527814
+            }
+          },
+          "runElapsedMs": 714.8936
+        }
+      ],
+      "trialCount": 5,
+      "allAttemptLatency": {
+        "sampleCount": 250,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 27.924,
+        "p95": 57.0399,
+        "p99": 76.7325,
+        "warning": "Local correlated samples, not independent trials or a service SLA."
+      },
+      "successLatency": {
+        "sampleCount": 50,
+        "definition": "Nearest rank: sorted[ceil(p*N)-1]; milliseconds. No interpolation.",
+        "p50": 41.2168,
+        "p95": 73.341399,
+        "p99": 79.481799,
+        "warning": "Fewer than 100 samples: p99 is the maximum; tail estimates are especially weak."
+      }
+    }
+  ],
+  "endedAt": "2026-10-07T05:34:27.833Z"
+}

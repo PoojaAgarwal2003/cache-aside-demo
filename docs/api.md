@@ -1,4 +1,4 @@
-# HTTP API (milestone 5)
+# HTTP API (milestone 6)
 
 All routes are local. Start with `--spring.profiles.active=demo` (or benchmark)
 to enable mutations. The default profile is read-only. `X-Client-Id` is a
@@ -7,7 +7,7 @@ controlled lab identity, **not authentication**. Do not publish these endpoints.
 | Route | Contract |
 |---|---|
 | `GET /` | Locally bundled dashboard; no frontend runtime service/CDN |
-| `GET /status` | Live database probe, milestone 5 capabilities, actual cache readiness and configured artificial delays |
+| `GET /status` | Live database probe, milestone 6 capabilities, actual cache readiness/delays, active profiles and anonymous JVM/PostgreSQL runtime metadata |
 | `GET /products/{id}` | 200/404 typed read envelope, with actual cache/DB source and publication outcome |
 | `POST /products` | Full `{name,price,stock}`; 201, DTO and `Location` |
 | `PATCH /products/{id}` | Explicit partial update; 200 DTO, 404 absent |

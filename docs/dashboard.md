@@ -60,8 +60,10 @@ include retries), and labels the overall run completion state. Throughput is
 based on the recorded run-wide measurement interval, not isolated case time.
 Use [Bruno](bruno.md) for the sequential API walkthrough.
 
-Milestone 5 covers the real browser failure/accessibility gate. Publishable
-screenshots and recorded benchmarks remain milestone 6.
+The real browser failure/accessibility gate also captures [publishable
+screenshots](results.md). [Benchmark tooling](benchmarks.md) uses the same runner
+but explicitly switches to a zero-delay benchmark profile, excludes warmups and
+retains all raw trials. Screenshot delays are not benchmark timing.
 
 ## Browser verification
 

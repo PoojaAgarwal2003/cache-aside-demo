@@ -55,3 +55,8 @@ Bruno scripts run in its safe sandbox; no collection npm-module execution or
 developer sandbox is enabled. CI Node/artifact actions are commit-SHA pinned.
 Transitive npm deprecation notices are not a passed security audit or a reason
 to silently float dependency versions.
+
+Milestone 6 benchmark and Compose-walkthrough clients use Node 22 built-ins only;
+they add no package dependency. Node remains a development/measurement tool, not
+an application runtime. The walkthrough also explicitly requires real Docker
+Linux containers/Compose v2; it does not silently fall back to native fixtures.

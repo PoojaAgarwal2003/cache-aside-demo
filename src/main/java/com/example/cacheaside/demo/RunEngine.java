@@ -126,7 +126,7 @@ public class RunEngine {
         var work = new Work(id, token, parameters);
         try {
             store.create(id, parameters, Map.of("java", System.getProperty("java.version"),
-                    "os", System.getProperty("os.name"), "appVersion", "0.5.0",
+                    "os", System.getProperty("os.name"), "appVersion", "0.6.0",
                     "readDelayMs", lab.readDelayMs(), "purchaseDelayMs", lab.purchaseDelayMs(),
                     "initialCache", "COLD_NEW_FIXTURE", "seedMeaning", "Jitter only; OS/DB scheduling is not deterministic",
                     "initialReadiness", cache.status(), "rateLimiter", limiter.status()));

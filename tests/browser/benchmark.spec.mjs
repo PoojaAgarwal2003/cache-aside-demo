@@ -28,5 +28,20 @@ test('zero-delay repeated trials exclude warmups and preserve raw persisted evid
       expect(raw).toEqual(await request(`/demo/runs/${record.runId}/export`));
     }
     await expect(collectBenchmark({ warmups: 1, trials: 2, out: directory }, request)).rejects.toThrow(/EEXIST/);
+    const abort = new AbortController();
+    const aborted = info.outputPath('cancelled-benchmark');
+    await expect(collectBenchmark({ warmups: 1, trials: 2, buyers: 100, concurrency: 1, out: aborted },
+      async (path, body) => {
+        const result = await request(path, body);
+        if (path === '/demo/runs' && body) abort.abort(new Error('Acceptance cancellation after real run creation.'));
+        return result;
+      }, { signal: abort.signal })).rejects.toThrow(/Acceptance cancellation/);
+    const failed = JSON.parse(await readFile(join(aborted, 'benchmark.json'), 'utf8'));
+    expect(failed.state).toBe('FAILED');
+    expect(failed.cleanupError).toBeUndefined();
+    expect(failed.runs).toHaveLength(1);
+    const cancelled = await request(`/demo/runs/${failed.runs[0].runId}/export`);
+    expect(cancelled.run.active).toBe(false);
+    expect(cancelled.run.result.quiescent).toBe(true);
   } finally { await lab.command('RESTART_APP'); }
 });
