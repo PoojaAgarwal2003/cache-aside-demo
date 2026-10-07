@@ -11,5 +11,7 @@ logs/
 node_modules/
 test-results/
 playwright-report/
+benchmark-results/
+walkthrough-results/
 *.hprof
 *.log

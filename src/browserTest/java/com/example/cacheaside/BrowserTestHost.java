@@ -43,7 +43,10 @@ public final class BrowserTestHost implements AutoCloseable {
                 || argument.startsWith("--lab.rate-limit.enabled=") || argument.startsWith("--lab.read-delay-ms=")
                 || argument.startsWith("--lab.purchase-delay-ms="));
         arguments.addAll(List.of("--server.port=" + port, "--spring.profiles.active=" + profile,
-                "--lab.read-delay-ms=200", "--lab.purchase-delay-ms=25", "--lab.rate-limit.enabled=true"));
+                "--lab.rate-limit.enabled=true"));
+        if (!"benchmark".equals(profile)) {
+            arguments.addAll(List.of("--lab.read-delay-ms=200", "--lab.purchase-delay-ms=25"));
+        }
         var argumentFile = directory.resolve("app.args");
         Files.writeString(argumentFile, arguments.stream().map(value -> "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"")
                 .collect(java.util.stream.Collectors.joining("\n")));
@@ -111,6 +114,7 @@ public final class BrowserTestHost implements AutoCloseable {
                         case "START_APP" -> host.start("demo");
                         case "RESTART_APP" -> { host.stopApp(); host.start("demo"); }
                         case "DEFAULT_PROFILE" -> { host.stopApp(); host.start("default"); }
+                        case "BENCHMARK_PROFILE" -> { host.stopApp(); host.start("benchmark"); }
                         case "BLOCK_FINALIZATION" -> host.finalizationFault(true);
                         case "UNBLOCK_FINALIZATION" -> host.finalizationFault(false);
                         case "CLOSE" -> { host.reply(Map.of("id", request.path("id").asInt(), "ok", true)); return; }

@@ -27,8 +27,9 @@ not race it by deleting the same live ownership file.
 
 `start.ps1 -Profile default` disables all mutations and artificial latency.
 `start.ps1 -Profile benchmark` enables lab mutation but sets both delays to zero.
-The shared experiment runner records the actual configured delays; repeated
-benchmark trials and presentation remain milestone 6.
+The shared experiment runner records the actual configured delays.
+[Repeatable benchmarks](benchmarks.md) exclude explicit warmup runs, retain raw
+trial exports, and refuse nonzero-delay or non-benchmark-profile measurements.
 
 Scripts load only the documented `.env` keys; existing process environment wins.
 Direct `gradlew bootRun` does **not** read `.env`.

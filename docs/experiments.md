@@ -166,5 +166,6 @@ the Redis process is still physically down.
 
 Runs, fixtures, attempts and keys are retained in the disposable lab database
 for refresh/restart/export. Only events have automatic retention. Long-term
-database housekeeping and statistically meaningful repeated benchmarks are
-not implemented by this milestone.
+database housekeeping is not automatic. [Benchmark tooling](benchmarks.md)
+repeats this runner with explicit warmups, fresh fixtures, zero delays and raw
+exports; small local trial sets still do not establish statistically robust SLAs.
