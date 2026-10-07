@@ -125,12 +125,18 @@ verification uses real Testcontainers for both databases.
 
 ## Persisted experiments and comparison
 
+For an isolated end-to-end gate that owns the actual app/Redis process restarts,
+direct ledger verification, PostgreSQL restart and benchmark trials, run
+`.\scripts\walkthrough.ps1` or `./scripts/walkthrough.sh`.
+[The Compose walkthrough](walkthrough.md) documents its separate project,
+retained volumes and raw evidence. It never interrupts the normal app project.
+
 ```powershell
 .\scripts\flash-sale.ps1 -Compare -OutFile comparison.json
 .\scripts\fire-requests.ps1 -Json '{"scenario":"COLD_WARM"}' -OutFile reads.json
 ```
 
-These PowerShell 5.1 clients invoke the same bounded backend as the future
+These PowerShell 5.1 clients invoke the same bounded backend as the
 dashboard. [Experiments](experiments.md) documents all scenarios, controls and
 metric definitions. JSON exports survive page refresh and app restart. Cancel
 with `POST /demo/runs/{id}/cancel`, not `stop.ps1`, to drain accepted work.

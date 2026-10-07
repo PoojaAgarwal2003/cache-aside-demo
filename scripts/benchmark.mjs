@@ -88,7 +88,7 @@ export async function collectBenchmark(input, request, { signal } = {}) {
       logicalCpus: cpus().length, memoryBytes: totalmem(), node: process.version },
     method: {
       warmups: 'Whole HTTP runs excluded from aggregates; same JVM, fresh cold fixtures and identities on every run.',
-      order: 'Sequential trials; COMPARE uses fixed NONE/PESSIMISTIC/OPTIMISTIC/ATOMIC_SQL/REDIS_ASSISTED order. Order/JIT/host-load bias remains.',
+      order: 'Sequential trials; COMPARE uses the fixed backend strategy order recorded in cases. Order/JIT/host-load bias remains.',
       cache: 'Each run starts COLD_NEW_FIXTURE; COLD_WARM observes its own first and second reads. Warmup does not prewarm later fixtures.',
       throughput: 'Retain each backend run-wide denominator; no sum of case throughput, average of percentiles, or speedup claim.',
       limits: 'One run at a time; 60s dispatch plus bounded drain. Small local samples are observations, not service SLAs.'

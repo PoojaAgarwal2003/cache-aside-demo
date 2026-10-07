@@ -95,6 +95,24 @@ public final class BrowserTestHost implements AutoCloseable {
         }
     }
 
+    private Map<String, String> redisIdentity(boolean mark) {
+        var client = io.lettuce.core.RedisClient.create(io.lettuce.core.RedisURI.Builder
+                .redis(redis.host, redis.port).withTimeout(Duration.ofSeconds(2)).build());
+        try (var connection = client.connect()) {
+            var commands = connection.sync();
+            String key = "flashsale:test:walkthrough-marker";
+            if (mark) { commands.setex(key, 600, java.util.UUID.randomUUID().toString()); }
+            String info = commands.info("server");
+            var values = new java.util.HashMap<String, String>();
+            for (String line : info.split("\\r?\\n")) {
+                int separator = line.indexOf(':');
+                if (separator > 0) { values.put(line.substring(0, separator), line.substring(separator + 1)); }
+            }
+            return Map.of("runId", values.get("run_id"), "version", values.get("redis_version"),
+                    "marker", java.util.Objects.toString(commands.get(key), ""));
+        } finally { client.shutdown(); }
+    }
+
     public static void main(String[] args) throws Exception {
         try (var database = new PostgresFixture();
              var redis = new RedisFixture();
@@ -115,6 +133,11 @@ public final class BrowserTestHost implements AutoCloseable {
                         case "RESTART_APP" -> { host.stopApp(); host.start("demo"); }
                         case "DEFAULT_PROFILE" -> { host.stopApp(); host.start("default"); }
                         case "BENCHMARK_PROFILE" -> { host.stopApp(); host.start("benchmark"); }
+                        case "REDIS_MARK", "REDIS_IDENTITY" -> {
+                            host.reply(Map.of("id", request.path("id").asInt(),
+                                    "redis", host.redisIdentity("REDIS_MARK".equals(command))));
+                            continue;
+                        }
                         case "BLOCK_FINALIZATION" -> host.finalizationFault(true);
                         case "UNBLOCK_FINALIZATION" -> host.finalizationFault(false);
                         case "CLOSE" -> { host.reply(Map.of("id", request.path("id").asInt(), "ok", true)); return; }
