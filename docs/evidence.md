@@ -2,7 +2,7 @@
 
 ## Milestone 6: repeatability, lifecycle and presentation
 
-Recorded **2026-10-07**, app **0.6.0**, before publication. Windows x64,
+Local evidence recorded **2026-10-07**, app **0.6.0**, before publication. Windows x64,
 Temurin 17.0.20.1+1, PostgreSQL 16.15 native and real Redis 7.4.11 in WSL,
 Node 22.17.0, Playwright 1.63.0 Chromium and Bruno 4.2.0.
 
@@ -45,13 +45,30 @@ runtime/CPU details, disclosure and actual numbers in [results.md](results.md).
 The full run logs are private local session artifacts. No personal paths,
 secrets, generated host arguments or production claims are in published evidence.
 
-**Publication gate:** the exact `milestone-6` commit must pass three independent
-[GitHub Actions](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions) jobs:
-`acceptance`, `browser`, and `compose-walkthrough`. The latter uses actual
-Compose services, direct `psql` stock/ledger comparison, PostgreSQL restart
-and repeated zero-delay trials. The author's machine has no Docker CLI/runtime;
-native results do **not** prove that gate. This pre-push document does not claim
-CI success; publication is verified only after all three jobs complete.
+**Publication gate passed:** the exact `milestone-6` commit,
+`979ce7a74ff29ff062d424f00c54cbd794a26d73`, passed all three independent jobs in
+[run 37577288165](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37577288165)
+on **2026-10-07**. The published branch and annotated milestone tag both
+identified that commit at delivery.
+
+| Published-commit gate | Result |
+|---|---|
+| `acceptance` | Passed with real PostgreSQL/Redis containers |
+| `browser` | Passed against the packaged app, including Chromium, Bruno and the Bash benchmark wrapper |
+| `compose-walkthrough` | Passed with actual Compose services, direct `psql` stock/ledger comparison, PostgreSQL restart and repeated zero-delay trials |
+
+Downloaded Compose evidence recorded a changed Redis process identity with the
+same retained marker, completed/interrupted exports surviving two app restarts,
+and an unchanged completed export after PostgreSQL restart. Direct ledger
+inspection found 10 unique unit sales and zero stock for each protected
+comparison case; the unsafe NONE case sold 16 and ended at -6. Those are
+observations from that CI run, not the separate native benchmark results.
+The benchmark manifest recorded two excluded warmups and five measured trials
+with both delays zero. Cleanup recorded `servicesStopped: true`, preserving
+volumes. Owned local test processes were also stopped with their data retained.
+
+The author's machine has no Docker CLI/runtime; the successful container gate
+above is CI evidence, not a claim of local Docker execution.
 Compose CI raw artifacts are retained 30 days; selected local evidence above
 is persistent in Git. Recorded videos and cross-browser certification are not
 claimed; complete [recording scripts](demo.md) are included.

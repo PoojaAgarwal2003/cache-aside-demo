@@ -43,6 +43,48 @@ There is **no automatic fixture seed**. Creates, edits and deletes survive
 restart. Guided scenarios create explicit per-run isolated fixtures;
 migrations never restore Laptop/Keyboard/Monitor over user edits.
 
+### Optional demo catalog setup
+
+With the app explicitly running in the `demo` profile, create the specification's
+sample catalog through the same validated API. This is an opt-in manual setup,
+not startup seeding. Every invocation creates **new** products and returns their
+IDs; it never searches for matching names or resets existing stock, prices or
+ledger data. Keep the returned IDs rather than assuming IDs 1, 2 and 3.
+
+```powershell
+$base = "http://127.0.0.1:8080" # Adjust only the local app port if configured.
+$catalog = @(
+    @{ name = "Laptop"; price = 1299.00; stock = 10 }
+    @{ name = "Keyboard"; price = 89.50; stock = 50 }
+    @{ name = "Monitor"; price = 349.99; stock = 20 }
+)
+foreach ($product in $catalog) {
+    Invoke-RestMethod "$base/products" -Method Post -ContentType "application/json" `
+        -Body ($product | ConvertTo-Json -Compress) -ErrorAction Stop
+}
+```
+
+Bash equivalent (with the same demo app running):
+
+```sh
+base=http://127.0.0.1:8080
+curl --fail-with-body --show-error --noproxy 127.0.0.1 \
+  -H 'Content-Type: application/json' \
+  --data '{"name":"Laptop","price":1299.00,"stock":10}' "$base/products" &&
+curl --fail-with-body --show-error --noproxy 127.0.0.1 \
+  -H 'Content-Type: application/json' \
+  --data '{"name":"Keyboard","price":89.50,"stock":50}' "$base/products" &&
+curl --fail-with-body --show-error --noproxy 127.0.0.1 \
+  -H 'Content-Type: application/json' \
+  --data '{"name":"Monitor","price":349.99,"stock":20}' "$base/products"
+```
+
+Each create is a separate transaction, not an all-or-nothing catalog import.
+On a failure, inspect the already returned IDs before manually continuing; do
+not blindly replay the whole block. Product creation has no purchase-style
+idempotency key. The experiment runner still creates its own isolated per-run
+fixtures; it does not consume or reset this manual catalog.
+
 ## Product caching and diagnostics
 
 Read envelopes contain `source`, `responseTimeMs`, `cacheWriteOutcome`, chronological `flow`

@@ -13,7 +13,7 @@ Actual Chromium capture from the running app, not a mockup. The screenshot uses
 **200ms read / 25ms purchase synthetic delays**, not benchmark timing.
 [Capture provenance and raw runs](docs/results.md) | [Recording scripts](docs/demo.md)
 
-**Milestone 6 of 6:** all five inventory strategies and durable
+FlashSale Lab supports five inventory strategies and durable
 idempotency, plus typed product caching, fenced invalidation, listener recovery,
 bounded rebuilds, separate Redis breakers and sliding-window rate limiting.
 The persisted experiment runner adds real loopback HTTP load, isolated fixtures,
@@ -23,10 +23,9 @@ layout and an asserted Bruno collection. Repeatable zero-delay benchmarks retain
 raw warmup/trial exports; whole-app/Redis/PostgreSQL lifecycle verification uses a
 separate real Compose project. Real screenshots and recording scripts complete
 the presentation; no video or scalability result is invented.
-[The roadmap](docs/roadmap.md) defines 22 meaningful commits and delivery gates.
 [Evidence](docs/evidence.md) distinguishes native PostgreSQL/Redis results from
 Docker-backed CI. [The supplied specification](docs/specification.txt)
-is the full target, not a list of already implemented features.
+describes the project's requirements and scope.
 
 [API walkthrough](docs/api.md) | [Architecture](docs/architecture.md) |
 [Operating guide](docs/operations.md) | [Limitations](docs/limitations.md)
@@ -100,8 +99,8 @@ non-synced directory before building (for example
 `$env:FLASHSALE_BUILD_DIR = "$env:LOCALAPPDATA\FlashSaleLab\build"`).
 This avoids sync-client locks on Gradle's transient binary test results.
 
-See [dependency decisions and official sources](docs/dependencies.md). Do not
-silently return to the old Boot 3.3.5 stack or upgrade Java to hide incompatibility.
+See [dependency decisions and official sources](docs/dependencies.md) for
+compatibility and version-selection details.
 
 ## Run locally
 
@@ -135,7 +134,7 @@ routine stop or test step.
 ```powershell
 .\gradlew.bat test                # Fast unit tests, no Docker
 .\gradlew.bat integrationTest     # Real PostgreSQL AND Redis; Docker prerequisite
-.\gradlew.bat check bootJar       # All current milestone checks + executable JAR
+.\gradlew.bat check bootJar       # Unit/integration checks + executable JAR
 ```
 
 An unavailable container runtime must fail acceptance, never silently skip it.

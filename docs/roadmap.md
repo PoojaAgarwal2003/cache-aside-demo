@@ -1,6 +1,6 @@
 # Milestones and commit plan
 
-Six milestones, **22 commits total** (4 + 5 + 4 + 3 + 3 + 3). Each commit is a
+Six milestones, **22 milestone commits** (4 + 5 + 4 + 3 + 3 + 3). Each commit is a
 coherent implementation step, not a cosmetic split. Counts below include the
 initial repository setup. Complete and verify one milestone, push its commits,
 then **pause until the owner explicitly says to proceed**. Do not start the next
@@ -17,9 +17,14 @@ two milestones to keep the backend runner and dashboard independently reviewable
 | 3. Cache consistency and resilience | 4 | Typed cache, generations/epochs, listener, leases, bulkhead, separate breakers/readiness, rate limiter and outage tests | Delivered; native and Docker CI verified |
 | 4. Persisted experiment engine | 3 | Bounded HTTP-driven runs, fixtures, drain/cancel, reconciliation, durable events/results and shell entry points | Delivered; native and Docker CI verified |
 | 5. Visual lab and API exploration | 3 | Same-origin dashboard, five-way comparison, guided scenarios, Bruno, accessibility/browser coverage | Delivered; native and Docker/browser CI verified |
-| 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Implemented; 104 backend tests, 8 Node units and 19 browser/CLI/process cases verified natively; three tagged CI jobs are publication gate |
+| 6. Repeatability and presentation | 3 | Benchmarks/raw evidence, whole-app restart/outage acceptance, real screenshots, polished docs/recording scripts | Delivered; native, Docker acceptance, browser and Compose lifecycle gates verified |
 
-**Current handoff:** milestone 6 completes the authorized three-slice plan:
+**Current handoff:** all six milestones were delivered in 22 commits, followed
+by one owner-authorized documentation closeout commit (23 commits total).
+`milestone-6` identifies `979ce7a74ff29ff062d424f00c54cbd794a26d73`;
+all three independent jobs passed in
+[run 37577288165](https://github.com/PoojaAgarwal2003/cache-aside-demo/actions/runs/37577288165).
+Milestone 6 completed the authorized three-slice plan:
 repeated zero-delay measurements, shared lifecycle/Compose verification, then
 actual presentation assets and final documentation. No further milestone is
 started. [Evidence](evidence.md) separates native results and published container
